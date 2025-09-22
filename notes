@@ -44,5 +44,19 @@ This project will be hosted on github, please include all standard support and d
 
 
 Mon 22 Sep 08:36:26 PDT 2025
-First try:
+Ran the above background and create project prompts together, worked pretty well:
+https://github.com/dana/tmtrack/commit/7dd8f6f598a7536f42bf85422fc1e1d4ce3e39c3
+
+'tox' works.  I wanted the tests to actually hit a real mongodb database instead of mock objects.
+
+Mon 22 Sep 09:03:20 PDT 2025
+Second Gemini prompt.
+
+<move_to_live_db_testing>
+Our goal is to modify the above specified project such that the tests aren't mocked and run against a real, live, running mongodb database reachable on localhost on the standard port.
+
+Please also modify the documentation detailing not only how to run the app on ubuntu 24 but also what command line steps are required to prepare the environment to run the app with standard 'flask run'.
+
+</move_to_live_db_testing>
+
 
