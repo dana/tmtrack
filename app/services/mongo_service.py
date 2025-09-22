@@ -10,28 +10,32 @@ class MongoService:
 
     def _get_db_connection(self):
         """
-        Establishes a MongoDB connection.
-        Ensures client and collection are initialized.
+        Establishes a MongoDB connection if not already established.
+        Uses configuration from Flask app context or default Config.
         """
         if self.client is None or self.collection is None:
             try:
+                # Import Config here to avoid circular dependency if MongoService is imported early
+                from ..config import Config
+
                 # Use current_app.config if running within Flask app context
                 # Otherwise, default to Config directly (useful for tests not in app context)
-                from ..config import Config
+                # The 'app' fixture in tests/test_api.py sets app.config for testing
                 mongo_uri = current_app.config.get('MONGO_URI', Config.MONGO_URI)
                 db_name = current_app.config.get('MONGO_DB_NAME', Config.MONGO_DB_NAME)
                 collection_name = current_app.config.get('MONGO_COLLECTION_NAME', Config.MONGO_COLLECTION_NAME)
 
-                self.client = MongoClient(mongo_uri)
+                self.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000) # 5-second timeout
                 self.client.admin.command('ping') # Test connection
                 self.db = self.client[db_name]
                 self.collection = self.db[collection_name]
                 print(f"Connected to MongoDB: {mongo_uri}, Database: {db_name}, Collection: {collection_name}")
             except ConnectionFailure as e:
-                print(f"MongoDB connection failed: {e}")
-                raise ConnectionFailure(f"Could not connect to MongoDB at {mongo_uri}: {e}")
+                # Log the specific connection failure for better debugging
+                print(f"ERROR: MongoDB connection failed: {e}")
+                raise ConnectionFailure(f"Could not connect to MongoDB at {mongo_uri}. Is it running? {e}")
             except Exception as e:
-                print(f"An unexpected error occurred during MongoDB connection: {e}")
+                print(f"ERROR: An unexpected error occurred during MongoDB connection: {e}")
                 raise e
         return self.collection
 
@@ -104,13 +108,16 @@ class MongoService:
 
     def clear_collection(self):
         """Clears all documents from the collection (use with caution, primarily for testing)."""
-        collection = self._get_db_connection()
+        # Ensure collection is correctly initialized, especially for non-app-context calls like setup/teardown
+        if self.collection is None:
+            self._get_db_connection() # Initialize if not already connected
         try:
-            collection.delete_many({})
+            result = self.collection.delete_many({})
+            print(f"Cleared {result.deleted_count} documents from {self.collection.name}")
+            return result.deleted_count
         except OperationFailure as e:
             print(f"MongoDB clear_collection operation failed: {e}")
             raise e
         except Exception as e:
             print(f"An unexpected error occurred during clear_collection: {e}")
             raise e
-

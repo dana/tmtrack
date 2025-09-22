@@ -1,35 +1,54 @@
 import pytest
 from app import create_app
 from app.services.mongo_service import MongoService
-from mongomock import MongoClient
-from unittest.mock import patch
 import json
 import datetime
+from pymongo.errors import ConnectionFailure
 
-# Mock the MongoClient to prevent actual database connections during testing
-@pytest.fixture(scope='module')
-def mock_mongo_client():
-    with patch('pymongo.MongoClient', new=MongoClient):
-        yield
+# Use a distinct test database and collection name
+TEST_DB_NAME = "tmtrack_test_db"
+TEST_COLLECTION_NAME = "daily_tasks_test"
 
-@pytest.fixture(scope='module')
-def app(mock_mongo_client):
+@pytest.fixture(scope='session', autouse=True)
+def ensure_mongodb_running():
+    """Ensures MongoDB is running before any tests are executed."""
+    try:
+        # Attempt to connect to MongoDB directly to check if it's running
+        from pymongo import MongoClient
+        client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=1000)
+        client.admin.command('ping')
+        print("\nMongoDB is running. Proceeding with tests.")
+    except ConnectionFailure:
+        pytest.fail("MongoDB not running. Please start MongoDB on localhost:27017 before running tests.")
+
+
+@pytest.fixture(scope='function') # Changed scope to function to clear DB for each test
+def app():
+    """
+    Fixture for creating a Flask app instance with test configuration.
+    Clears the test database collection before each test function.
+    """
     app = create_app()
     app.config.update({
         "TESTING": True,
-        "MONGO_URI": "mongodb://localhost:27017/", # Still needs to be set for config, but mock client intercepts
-        "MONGO_DB_NAME": "tmtrack_test_db",
-        "MONGO_COLLECTION_NAME": "daily_tasks_test"
+        "MONGO_URI": "mongodb://localhost:27017/",
+        "MONGO_DB_NAME": TEST_DB_NAME,
+        "MONGO_COLLECTION_NAME": TEST_COLLECTION_NAME
     })
-    # Clear the collection before each test suite run
+
     with app.app_context():
         mongo_service = MongoService()
-        mongo_service.clear_collection()
+        # Explicitly set db and collection names for the service instance used in fixture
+        # to ensure it clears the correct test collection.
+        mongo_service.db = mongo_service.client[TEST_DB_NAME]
+        mongo_service.collection = mongo_service.db[TEST_COLLECTION_NAME]
+        mongo_service.clear_collection() # Clear before each test
     yield app
-    # Clear collection after tests
     with app.app_context():
         mongo_service = MongoService()
-        mongo_service.clear_collection()
+        mongo_service.db = mongo_service.client[TEST_DB_NAME]
+        mongo_service.collection = mongo_service.db[TEST_COLLECTION_NAME]
+        mongo_service.clear_collection() # Clear after each test
 
 
 @pytest.fixture()
@@ -59,16 +78,15 @@ def test_create_task_success(client):
     assert 'task_id' in data
     assert data['message'] == 'Task created successfully'
 
-    # Verify task exists in the mocked DB
-    with patch('pymongo.MongoClient', new=MongoClient): # Re-patch for service instance if needed
-        with client.application.app_context():
-            mongo_service = MongoService()
-            retrieved_task = mongo_service.get_task(data['task_id'])
-            assert retrieved_task is not None
-            assert retrieved_task['userid'] == "testuser1"
-            assert retrieved_task['arbitrary_field'] == "some_value"
-            assert 'created_at' in retrieved_task
-            assert 'updated_at' in retrieved_task
+    # Verify task exists in the real DB
+    with client.application.app_context():
+        mongo_service = MongoService()
+        retrieved_task = mongo_service.get_task(data['task_id'])
+        assert retrieved_task is not None
+        assert retrieved_task['userid'] == "testuser1"
+        assert retrieved_task['arbitrary_field'] == "some_value"
+        assert 'created_at' in retrieved_task
+        assert 'updated_at' in retrieved_task
 
 
 def test_create_task_missing_required_field(client):
@@ -159,16 +177,15 @@ def test_modify_task_success(client):
     assert data['message'] == 'Task updated successfully'
     assert data['task_id'] == created_task_id
 
-    # Verify update in the mocked DB
-    with patch('pymongo.MongoClient', new=MongoClient):
-        with client.application.app_context():
-            mongo_service = MongoService()
-            retrieved_task = mongo_service.get_task(created_task_id)
-            assert retrieved_task['actual_hours'] == 4.5
-            assert retrieved_task['description'] == "Finished early."
-            assert retrieved_task['new_arbitrary_field'] == "new_value"
-            assert retrieved_task['userid'] == "moduser1" # Unchanged
-            assert retrieved_task['updated_at'] > retrieved_task['created_at']
+    # Verify update in the real DB
+    with client.application.app_context():
+        mongo_service = MongoService()
+        retrieved_task = mongo_service.get_task(created_task_id)
+        assert retrieved_task['actual_hours'] == 4.5
+        assert retrieved_task['description'] == "Finished early."
+        assert retrieved_task['new_arbitrary_field'] == "new_value"
+        assert retrieved_task['userid'] == "moduser1" # Unchanged
+        assert retrieved_task['updated_at'] > retrieved_task['created_at']
 
 
 def test_modify_task_not_found(client):
@@ -212,4 +229,46 @@ def test_modify_task_arbitrary_field_not_string(client):
 
     # Try to modify with bad arbitrary type
     modify_data = {"new_arbitrary_number": 456} # Should be string
+    response = client.put(f'/api/v1/tasks/{created_task_id}', json=modify_data)
+    assert response.status_code == 400
+    data = json.loads(response.data)
+    assert data['status'] == 'error'
+    assert data['message'] == "Arbitrary attribute 'new_arbitrary_number' must be a string."
 
+def test_get_task_success(client):
+    """Test retrieving a single task."""
+    create_response = client.post('/api/v1/tasks', json={
+        "userid": "getuser1", "date": "2023-03-01", "task_name": "Task to Get",
+        "category": "Retrieve", "expected_hours": 1.0
+    })
+    assert create_response.status_code == 201
+    created_task_id = json.loads(create_response.data)['task_id']
+
+    response = client.get(f'/api/v1/tasks/{created_task_id}')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data['status'] == 'success'
+    assert data['task']['task_id'] == created_task_id
+    assert data['task']['userid'] == 'getuser1'
+
+def test_get_task_not_found(client):
+    """Test retrieving a non-existent task."""
+    response = client.get(f'/api/v1/tasks/non-existent-task')
+    assert response.status_code == 404
+    data = json.loads(response.data)
+    assert data['status'] == 'error'
+    assert 'not found' in data['message']
+
+def test_get_all_tasks(client):
+    """Test retrieving all tasks."""
+    client.post('/api/v1/tasks', json={"userid": "listuser1", "date": "2023-04-01", "task_name": "List Task 1", "category": "List", "expected_hours": 1.0})
+    client.post('/api/v1/tasks', json={"userid": "listuser2", "date": "2023-04-02", "task_name": "List Task 2", "category": "List", "expected_hours": 2.0})
+
+    response = client.get('/api/v1/tasks')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data['status'] == 'success'
+    assert len(data['tasks']) >= 2 # Might be more if previous tests failed to clear cleanly, but the fixture should handle it.
+    userids = [t['userid'] for t in data['tasks']]
+    assert 'listuser1' in userids
+    assert 'listuser2' in userids

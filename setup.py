@@ -16,7 +16,6 @@ setup(
             'pytest',
             'pytest-flask',
             'tox',
-            'mongomock', # For mocking MongoDB in tests (optional, but good practice)
         ],
     },
     entry_points={
@@ -39,4 +38,3 @@ setup(
     ],
     python_requires='>=3.10',
 )
-
