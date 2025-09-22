@@ -18,7 +18,12 @@ TASK_FIELDS = {
     "description": {"type": str, "required": False}
 }
 
+# --- FIX: Define internal fields to be ignored by arbitrary attribute validation ---
+INTERNAL_FIELDS = {'created_at', 'updated_at'} # Using a set for faster lookups
+
+
 def validate_task_data(data, is_create=True):
+    # ... (This function does not need to be changed)
     """
     Validates incoming data against predefined TASK_FIELDS.
     If is_create is True, all required fields must be present.
@@ -49,10 +54,8 @@ def validate_task_data(data, is_create=True):
     if not is_create and "task_id" not in data:
         errors["task_id"] = "'task_id' is required for modification."
 
-    # Check for unknown fields if strict validation is needed
-    # For this project, arbitrary additional attributes are allowed, so no check here.
-
     return errors
+
 
 @tasks_bp.route('/tasks', methods=['POST'])
 def create_task():
@@ -78,9 +81,11 @@ def create_task():
     data['created_at'] = datetime.datetime.now(datetime.timezone.utc)
     data['updated_at'] = datetime.datetime.now(datetime.timezone.utc)
 
+    # --- FIX: Modify the validation loop to ignore internal fields ---
     # Ensure all arbitrary additional attributes are strings if provided
     for key, value in data.items():
-        if key not in TASK_FIELDS and not isinstance(value, str):
+        # An attribute is arbitrary if it's not a defined task field AND not an internal field
+        if key not in TASK_FIELDS and key not in INTERNAL_FIELDS and not isinstance(value, str):
             return jsonify({"status": "error", "message": f"Arbitrary attribute '{key}' must be a string."}), 400
 
     try:
@@ -91,8 +96,8 @@ def create_task():
             "task_id": task_id
         }), 201
     except Exception as e:
-        # Log the exception in a real application
         return jsonify({"status": "error", "message": f"Failed to create task: {str(e)}"}), 500
+
 
 @tasks_bp.route('/tasks/<string:task_id>', methods=['PUT'])
 def modify_task(task_id):
@@ -106,9 +111,6 @@ def modify_task(task_id):
     if not data:
         return jsonify({"status": "error", "message": "Request must be JSON"}), 400
 
-    # task_id from URL overrides any task_id in body for the lookup
-    # We remove it from data to prevent it from being modified by the user
-    # but still allow other fields to be validated.
     if 'task_id' in data:
         del data['task_id']
 
@@ -119,9 +121,11 @@ def modify_task(task_id):
     # Add update timestamp
     data['updated_at'] = datetime.datetime.now(datetime.timezone.utc)
 
+    # --- FIX: Modify the validation loop to ignore internal fields ---
     # Ensure all arbitrary additional attributes are strings if provided
     for key, value in data.items():
-        if key not in TASK_FIELDS and not isinstance(value, str):
+        # An attribute is arbitrary if it's not a defined task field AND not an internal field
+        if key not in TASK_FIELDS and key not in INTERNAL_FIELDS and not isinstance(value, str):
             return jsonify({"status": "error", "message": f"Arbitrary attribute '{key}' must be a string."}), 400
 
     try:
@@ -137,7 +141,6 @@ def modify_task(task_id):
             "task_id": task_id
         }), 200
     except Exception as e:
-        # Log the exception in a real application
         return jsonify({"status": "error", "message": f"Failed to update task: {str(e)}"}), 500
 
 # Optionally, add a GET endpoint for debugging/testing

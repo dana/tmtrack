@@ -59,4 +59,23 @@ Please also modify the documentation detailing not only how to run the app on ub
 
 </move_to_live_db_testing>
 
+This is pretty good.  Tox still works, but there is an error when running it live.
 
+I also changed the AI model from the default 'Nano Banana' to 'Gemini 2.5 Pro'
+
+<fix_arbitrary_attribute_create_error>
+Given the following command-line invocation, an error occurs:
+
+$ curl -X POST -H "Content-Type: application/json" -d '{
+    "userid": "curluser1",
+    "date": "2023-10-27",
+    "task_name": "Review documentation",
+    "category": "Documentation",
+    "expected_hours": 2.0,
+    "description": "Review the updated README.md"
+}' http://127.0.0.1:5000/api/v1/tasks
+{"message":"Arbitrary attribute 'created_at' must be a string.","status":"error"}
+
+Please make a test case to capture this error and also necessary code changes to fix it.
+
+</fix_arbitrary_attribute_create_error>

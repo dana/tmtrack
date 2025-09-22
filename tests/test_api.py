@@ -272,3 +272,54 @@ def test_get_all_tasks(client):
     userids = [t['userid'] for t in data['tasks']]
     assert 'listuser1' in userids
     assert 'listuser2' in userids
+# In tests/test_api.py
+
+def test_create_task_does_not_fail_on_internal_datetime_fields(client):
+    """
+    Test that a valid task creation does not fail validation due to
+    internally added datetime fields like 'created_at' and 'updated_at'.
+    This test specifically captures the bug where internal fields were
+    incorrectly validated as arbitrary string attributes.
+    """
+    task_data = {
+        "userid": "internal_field_user",
+        "date": "2024-01-01",
+        "task_name": "Test Internal Fields",
+        "category": "Bugfix",
+        "expected_hours": 1.0,
+        "description": "This task should be created without errors."
+    }
+    response = client.post('/api/v1/tasks', json=task_data)
+
+    # Before the fix, this would be a 400 error. After the fix, it should be 201.
+    assert response.status_code == 201, f"Expected status 201, but got {response.status_code}. Response data: {response.data.decode()}"
+
+    data = json.loads(response.data)
+    assert data['status'] == 'success'
+    assert 'task_id' in data
+
+
+def test_modify_task_does_not_fail_on_internal_datetime_fields(client):
+    """
+    Test that a valid task modification does not fail validation due to
+    the internally added 'updated_at' datetime field.
+    """
+    # First, create a task to modify
+    create_response = client.post('/api/v1/tasks', json={
+        "userid": "internal_modify_user",
+        "date": "2024-01-02",
+        "task_name": "Task for Internal Field Modify",
+        "category": "Bugfix",
+        "expected_hours": 2.0
+    })
+    assert create_response.status_code == 201
+    task_id = json.loads(create_response.data)['task_id']
+
+    # Now, modify it with valid data
+    modify_data = {"description": "Updated description."}
+    response = client.put(f'/api/v1/tasks/{task_id}', json=modify_data)
+
+    # Before the fix, this would also be a 400 error. After the fix, it should be 200.
+    assert response.status_code == 200, f"Expected status 200, but got {response.status_code}. Response data: {response.data.decode()}"
+    data = json.loads(response.data)
+    assert data['status'] == 'success'
