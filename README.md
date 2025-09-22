@@ -100,16 +100,19 @@ The project uses `tox` for comprehensive testing.
     "description": "Implement the Flask API for task management.",
     "project_code": "TMTRACK-FLASK"
 }
+```
 
 
 Successful Response (201 Created):
 
 
+```json
 {
     "message": "Task created successfully",
     "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
     "status": "success"
 }
+```
 
 2. Modify an Existing Task
 URL: /api/v1/tasks/<task_id>
@@ -118,20 +121,24 @@ Content-Type: application/json
 Request Body Example:
 
 
+```json
 {
     "expected_hours": 9.0,
     "actual_hours": 8.5,
     "description": "Adjusted hours based on new requirements."
 }
+```
 
 Successful Response (200 OK):
 
 
+```json
 {
     "message": "Task updated successfully",
     "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
     "status": "success"
 }
+```
 
 Contributing
 Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
