@@ -1,0 +1,48 @@
+Mon 22 Sep 08:06:32 PDT 2025
+
+Initial gemini prompt to create project that has a working tox test environment.
+
+<background_context>
+
+We are making a modern python, standards and PEP compliant flask based REST API that will connect to a localhost installed mongodb database.  This application is called "tmtrack", which means "time tracker".  Each mongodb document should represent a single task on a single day.  The mongodb document should contain at a minimum the following attributes:
+
+* task_id : a required string that contains a synthetic UUID created upon document creation
+* userid : a required string that contains the userid of the person doing the task
+* date : the required calendar date on which the task is to be done
+* task_name : a required string that is the name of the task
+* category : a required string that is the category of the task
+* expected_hours : a required float containing the number of hours the task is expected to take
+* actual_hours : an optional float containing the number of hours the task actually took
+* description : an optional large string that contains text allowing the user to add some context about this task
+
+The unique, primary key for each document is task_id.
+
+The initial REST API Flask calls are:
+
+* Create a new task document that creates the previously a document with the previously defined attributes.  It will fail if any of the required attributes are missing, and also allow any optional attributes to be set at the same time.  It will allow any arbitrary additional attributes to be passed in by name and value, all of type string.  It will check all of the defined data types and fail if any of them are incorrect.  Prior to creating the document, create a string task_id that is also saved in the document and also returned by the REST API to the caller.
+
+* Modify an existing task document.  This API call takes any number of arguments, but task_id is required and defines which document in the database is to be modified.  All of the other attributes passed into this API call over-write the values of the same named attributes in the mongodb document referenced by task_id.  The attributes should be type checked and the call should fail making no modifications if there are any errors, type checked or otherwise.
+
+</background_context>
+
+
+<create_project>
+
+Please create this project as described above, including all of the necessary directory structure, configuration and support files.
+
+Given all of this context, please select an appropriate mongodb database name and mongodb collection name for this project.
+
+This should be fully testable by the 'tox' python framework.
+
+Each API call should be testable and tested by command-line curl calls.
+
+This is being built on Ubuntu 24.  Make sure what you produce passes all tests after a command-line 'tox' invocation.
+
+This project will be hosted on github, please include all standard support and documentation files appropriate for a new github, modern python project.
+
+</create_project>
+
+
+Mon 22 Sep 08:36:26 PDT 2025
+First try:
+
