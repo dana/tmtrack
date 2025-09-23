@@ -79,3 +79,17 @@ $ curl -X POST -H "Content-Type: application/json" -d '{
 Please make a test case to capture this error and also necessary code changes to fix it.
 
 </fix_arbitrary_attribute_create_error>
+
+
+Tue 23 Sep 07:25:20 PDT 2025
+<fix_modify_error>
+Given the following command-line invocation, an error occurs:
+
+$ curl -X PUT -H "Content-Type: application/json" -d '{
+    "actual_hours": 2.5,
+    "notes": "Completed faster than expected."
+}' http://127.0.0.1:5000/api/v1/tasks/c5845f36-c22a-499f-8c69-520545df75ce
+{"errors":{"task_id":"'task_id' is required for modification."},"message":"Validation failed","status":"error"}
+
+Please make a test case to capture this error and also make necessary code changes to fix it.  Note that it should not be required to pass "task_id" in as an attribute since it's already defined in the URL.
+</fix_modify_error>

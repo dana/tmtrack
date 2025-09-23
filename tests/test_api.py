@@ -1,3 +1,5 @@
+# In tests/test_api.py
+
 import pytest
 from app import create_app
 from app.services.mongo_service import MongoService
@@ -323,3 +325,36 @@ def test_modify_task_does_not_fail_on_internal_datetime_fields(client):
     assert response.status_code == 200, f"Expected status 200, but got {response.status_code}. Response data: {response.data.decode()}"
     data = json.loads(response.data)
     assert data['status'] == 'success'
+
+def test_modify_task_without_task_id_in_body_succeeds(client):
+    """
+    Test that modifying a task succeeds when the task_id is only in the URL
+    and not in the request body, which is the correct REST pattern.
+    This captures the bug where validation incorrectly required task_id in the body.
+    """
+    # First, create a task to get a valid ID
+    create_response = client.post('/api/v1/tasks', json={
+        "userid": "no_body_id_user",
+        "date": "2024-02-01",
+        "task_name": "Test No Body ID",
+        "category": "Bugfix",
+        "expected_hours": 3.0
+    })
+    assert create_response.status_code == 201
+    task_id = json.loads(create_response.data)['task_id']
+
+    # Now, modify it without task_id in the JSON payload
+    modify_data = {"description": "This update should work."}
+    response = client.put(f'/api/v1/tasks/{task_id}', json=modify_data)
+
+    # Before the fix, this will be 400. After, it should be 200.
+    assert response.status_code == 200, f"Expected status 200, but got {response.status_code}. Response data: {response.data.decode()}"
+    data = json.loads(response.data)
+    assert data['status'] == 'success'
+    assert data['message'] == 'Task updated successfully'
+
+    # Verify the change in the database
+    with client.application.app_context():
+        mongo_service = MongoService()
+        retrieved_task = mongo_service.get_task(task_id)
+        assert retrieved_task['description'] == "This update should work."

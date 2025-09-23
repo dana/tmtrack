@@ -1,3 +1,5 @@
+# In app/api/tasks.py
+
 from flask import Blueprint, request, jsonify
 from uuid import uuid4
 import datetime
@@ -49,10 +51,6 @@ def validate_task_data(data, is_create=True):
                     datetime.datetime.strptime(value, '%Y-%m-%d')
                 except ValueError:
                     errors[field] = f"'{field}' must be in YYYY-MM-DD format."
-
-    # For modify, check if task_id is present if it's the only field
-    if not is_create and "task_id" not in data:
-        errors["task_id"] = "'task_id' is required for modification."
 
     return errors
 
