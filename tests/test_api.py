@@ -358,3 +358,28 @@ def test_modify_task_without_task_id_in_body_succeeds(client):
         mongo_service = MongoService()
         retrieved_task = mongo_service.get_task(task_id)
         assert retrieved_task['description'] == "This update should work."
+
+
+def test_list_users(client):
+    """Test the list_users endpoint to ensure it returns the correct users."""
+    response = client.get('/api/v1/users')
+    
+    # 1. Check for a successful HTTP status code
+    assert response.status_code == 200
+    
+    data = json.loads(response.data)
+    
+    # 2. Check that the top-level JSON key is 'users'
+    assert 'users' in data
+    
+    # 3. Check that the value associated with 'users' is a list
+    assert isinstance(data['users'], list)
+    
+    # 4. Check that the list contains the exact expected users
+    # Using a set comparison is robust and ignores the order of elements.
+    expected_users = {"dana", "michelle"}
+    assert set(data['users']) == expected_users
+    
+    # 5. Check that there are no extra users
+    assert len(data['users']) == 2
+

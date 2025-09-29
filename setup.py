@@ -9,7 +9,8 @@ setup(
         'Flask',
         'pymongo',
         'python-dotenv',
-        'uwsgi', # If deploying with uWSGI
+        'uwsgi',
+        'Flask-Cors',
     ],
     extras_require={
         'test': [
