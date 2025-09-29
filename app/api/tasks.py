@@ -55,6 +55,15 @@ def validate_task_data(data, is_create=True):
     return errors
 
 
+@tasks_bp.route('/users', methods=['GET'])
+def list_users():
+    """
+    Returns a static list of allowed userids.
+    """
+    allowed_users = ["dana", "michelle"]
+    return jsonify({"users": allowed_users}), 200
+
+
 @tasks_bp.route('/tasks', methods=['POST'])
 def create_task():
     """

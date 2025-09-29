@@ -93,3 +93,20 @@ $ curl -X PUT -H "Content-Type: application/json" -d '{
 
 Please make a test case to capture this error and also make necessary code changes to fix it.  Note that it should not be required to pass "task_id" in as an attribute since it's already defined in the URL.
 </fix_modify_error>
+
+<fix-jquery-cors-runtime-error>
+The following javascript error occured:
+
+Access to XMLHttpRequest at 'http://localhost:5000/api/v1/tasks' from origin 'http://127.0.0.1:8000' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+
+What code changes are necessary to resolve this?
+</fix-jquery-cors-runtime-error>
+
+
+<multi-users-pt1>
+Add a new REST route called list_users that returns an array of strings.
+Each of these strings are a userid that is allowed to use this system.
+The two userids to return are: "dana" and "michelle".
+
+Please add a test for this route in the normal way.
+</multi-users-pt1>
