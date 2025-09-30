@@ -39,6 +39,47 @@ class MongoService:
                 raise e
         return self.collection
 
+    def _get_collection(self, collection_name: str):
+        """Returns a collection object from the database by name."""
+        # Ensure we have a database connection
+        if self.db is None:
+            self._get_db_connection()
+        return self.db[collection_name]
+
+    # --- New methods for the 'categories' collection ---
+    def get_categories(self):
+        """Retrieves the single categories document."""
+        collection = self._get_collection('categories')
+        try:
+            return collection.find_one()
+        except Exception as e:
+            print(f"MongoDB find_one operation failed on 'categories' collection: {e}")
+            raise e
+
+    def update_categories(self, categories_doc: dict):
+        """
+        Replaces the single categories document.
+        Uses upsert=True to create the document if it doesn't exist.
+        """
+        collection = self._get_collection('categories')
+        try:
+            # The filter {} matches any single document.
+            # replace_one with upsert=True will replace the one doc or create it.
+            result = collection.replace_one({}, categories_doc, upsert=True)
+            return result
+        except Exception as e:
+            print(f"MongoDB replace_one operation failed on 'categories' collection: {e}")
+            raise e
+
+    def clear_categories_collection(self):
+        """Clears all documents from the categories collection for testing."""
+        collection = self._get_collection('categories')
+        try:
+            collection.delete_many({})
+        except Exception as e:
+            print(f"MongoDB clear_categories_collection operation failed: {e}")
+            raise e
+            
     def insert_task(self, task_data):
         """Inserts a new task document."""
         collection = self._get_db_connection()
