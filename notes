@@ -110,3 +110,29 @@ The two userids to return are: "dana" and "michelle".
 
 Please add a test for this route in the normal way.
 </multi-users-pt1>
+
+<categories>
+We need a new REST route called categories.  A GET on the categories route
+will return something like this:
+ {
+     "categories" : [
+         "category1",
+         "category2"
+     ]
+ }
+
+This is to be stored in the mongodb collection called 'categories'.  This
+collection should have a single document which is exactly what is returned
+by the above GET.
+
+In the same way, a PUT on the categories route will replace the entire,
+single document with the value in the PUT request.  The PUT request will
+have exactly the same document format as described above.
+
+If it makes sense, put this route in a separate Python file.
+
+Also add tests for this feature without any mock objects.  The test should
+connect to and use the real MongoDB database.
+
+Also add documentation as needed.
+</categories>

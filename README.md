@@ -218,6 +218,23 @@ Curl Example (Get All):
 curl http://127.0.0.1:5000/api/v1/tasks
 ```
 
+5. Get Categories
+
+*   **URL:** `/api/v1/categories`
+*   **Method:** `GET`
+
+**Successful Response (200 OK):**
+
+```json
+{
+    "categories": [
+        "work",
+        "personal",
+        "billing"
+    ]
+}
+
+
 Contributing
 Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
 License

@@ -9,7 +9,8 @@ from pymongo.errors import ConnectionFailure
 
 # Use a distinct test database and collection name
 TEST_DB_NAME = "tmtrack_test_db"
-TEST_COLLECTION_NAME = "daily_tasks_test"
+TEST_TASKS_COLLECTION = "daily_tasks_test"
+TEST_CATEGORIES_COLLECTION = "categories" # Use a consistent name, no need for _test
 
 @pytest.fixture(scope='session', autouse=True)
 def ensure_mongodb_running():
@@ -35,7 +36,7 @@ def app():
         "TESTING": True,
         "MONGO_URI": "mongodb://localhost:27017/",
         "MONGO_DB_NAME": TEST_DB_NAME,
-        "MONGO_COLLECTION_NAME": TEST_COLLECTION_NAME
+        "MONGO_COLLECTION_NAME": TEST_TASKS_COLLECTION
     })
 
     with app.app_context():
@@ -43,14 +44,17 @@ def app():
         # Explicitly set db and collection names for the service instance used in fixture
         # to ensure it clears the correct test collection.
         mongo_service.db = mongo_service.client[TEST_DB_NAME]
-        mongo_service.collection = mongo_service.db[TEST_COLLECTION_NAME]
+        mongo_service.collection = mongo_service.db[TEST_TASKS_COLLECTION]
         mongo_service.clear_collection() # Clear before each test
+        mongo_service.clear_categories_collection()
     yield app
     with app.app_context():
         mongo_service = MongoService()
         mongo_service.db = mongo_service.client[TEST_DB_NAME]
-        mongo_service.collection = mongo_service.db[TEST_COLLECTION_NAME]
+        mongo_service.collection = mongo_service.db[TEST_TASKS_COLLECTION]
         mongo_service.clear_collection() # Clear after each test
+        mongo_service.clear_categories_collection()
+
 
 
 @pytest.fixture()
@@ -382,4 +386,63 @@ def test_list_users(client):
     
     # 5. Check that there are no extra users
     assert len(data['users']) == 2
+
+
+def test_get_categories_when_empty(client):
+    """Test GET /categories when no document exists; should return a default empty list."""
+    response = client.get('/api/v1/categories')
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data == {"categories": []}
+
+def test_put_and_get_categories(client):
+    """Test successfully setting categories with PUT and then retrieving them with GET."""
+    # 1. PUT a new list of categories
+    put_payload = {"categories": ["work", "personal", "billing"]}
+    put_response = client.put('/api/v1/categories', json=put_payload)
+    assert put_response.status_code == 200
+    put_data = json.loads(put_response.data)
+    assert put_data['status'] == 'success'
+
+    # 2. GET the categories to verify they were saved
+    get_response = client.get('/api/v1/categories')
+    assert get_response.status_code == 200
+    get_data = json.loads(get_response.data)
+    assert get_data == put_payload
+
+def test_put_categories_overwrite(client):
+    """Test that a second PUT request overwrites the existing categories document."""
+    # First PUT
+    client.put('/api/v1/categories', json={"categories": ["initial", "list"]})
+
+    # Second PUT with new data
+    new_payload = {"categories": ["final list only"]}
+    put_response = client.put('/api/v1/categories', json=new_payload)
+    assert put_response.status_code == 200
+
+    # GET to confirm the data was overwritten
+    get_response = client.get('/api/v1/categories')
+    assert get_response.status_code == 200
+    get_data = json.loads(get_response.data)
+    assert get_data == new_payload
+
+def test_put_categories_invalid_payloads(client):
+    """Test various invalid payloads for the PUT /categories endpoint."""
+    # Case 1: Incorrect top-level key
+    bad_payload_1 = {"cats": ["a", "b"]}
+    response1 = client.put('/api/v1/categories', json=bad_payload_1)
+    assert response1.status_code == 400
+    assert "must contain a 'categories' key" in response1.data.decode()
+
+    # Case 2: Value is not a list
+    bad_payload_2 = {"categories": "just a string"}
+    response2 = client.put('/api/v1/categories', json=bad_payload_2)
+    assert response2.status_code == 400
+    assert "must be a list" in response2.data.decode()
+
+    # Case 3: List contains non-string items
+    bad_payload_3 = {"categories": ["ok", "fine", 123, "not fine"]}
+    response3 = client.put('/api/v1/categories', json=bad_payload_3)
+    assert response3.status_code == 400
+    assert "must be strings" in response3.data.decode()
 
