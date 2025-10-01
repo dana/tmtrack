@@ -193,3 +193,39 @@ for this change.
 
 Please provide the necessary changes, and display all changed or added files in full.
 </auth-and-authen-pt1>
+
+<auth-and-authen-pt2>
+For every call to the REST API server, please examine the Authorization
+header of the HTTP request.  This Authorization header might contain
+an auth_token, as defined previously.  Please use the previously
+created methods to convert the passed Authorization header into
+the related userid and related group_names, as defined in the data structures
+above.
+
+Every one of the existing REST calls should be modified to ALSO return
+a "userid" attribute and a "groups" attribute, in addition to everything
+the existing call returns right now.
+
+There should be no changes to the core behaviour of the app or any REST
+calls.  For example, the /api/v1/categories call should return something
+like this:
+ {
+   "userid": "dana",
+   "groups": ["Hunny Bunnies", "Administrators"],
+   "categories" : [
+      "tmtrack",
+      "work",
+      "new category",
+      "personal"
+   ]
+ }
+
+Make this kind of change to all of the other REST calls.
+
+Please add some relevant relevant tests and comprehensive documentation
+for this change.  Modify the example curl command-line calls in the
+existing documention to show how to send Authorization headers, as well
+as the update output.
+
+Please provide the necessary changes, and display all changed or added files in full.
+</auth-and-authen-pt2>
