@@ -22,15 +22,119 @@
 
 ## Getting Started
 
-... (This section remains unchanged) ...
+### Prerequisites
+
+*   Python 3.10+
+*   **MongoDB installed and running on `localhost:27017`**
+*   `pyenv` (recommended for managing Python versions, optional)
+
+### MongoDB Installation on Ubuntu 24.04 (Noble Numbat)
+
+Follow these steps to install MongoDB Community Edition on your Ubuntu 24.04 system. These instructions are adapted from the official MongoDB documentation.
+
+1.  **Import the MongoDB GPG Key:**
+    ```bash
+    curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | \
+       sudo gpg -o /usr/share/keyrings/mongodb-server-7.0.gpg \
+       --dearmor
+    ```
+
+2.  **Create the List File for MongoDB:**
+    ```bash
+    echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
+    ```
+
+3.  **Reload Local Package Database:**
+    ```bash
+    sudo apt update
+    ```
+
+4.  **Install MongoDB Packages:**
+    ```bash
+    sudo apt install -y mongodb-org
+    ```
+
+5.  **Start MongoDB:**
+    ```bash
+    sudo systemctl start mongod
+    ```
+
+6.  **Verify MongoDB is Running:**
+    ```bash
+    sudo systemctl status mongod
+    ```
+    You should see `active (running)`.
+
+7.  **Enable MongoDB to Start on Boot (Optional but recommended):**
+    ```bash
+    sudo systemctl enable mongod
+    ```
+
+### Application Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/tmtrack.git
+    cd tmtrack
+    ```
+
+2.  **Set up a virtual environment (recommended):**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  **Install dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ## Running the Application (with `flask run`)
 
-... (This section remains unchanged) ...
+1.  **Ensure MongoDB is running** (see "Start MongoDB" step above).
+
+2.  **Set Flask environment variables:**
+    ```bash
+    export FLASK_APP=app/__init__.py
+    export FLASK_ENV=development
+    ```
+    *   `FLASK_APP`: Tells Flask where your main application instance is.
+    *   `FLASK_ENV`: Sets the environment (e.g., `development` enables debug mode).
+
+3.  **Run the Flask development server:**
+    ```bash
+    flask run
+    ```
+    The API will be available at `http://127.0.0.1:5000`.
+
+## Testing
+
+The project uses `tox` for comprehensive testing against a **live MongoDB instance**.
+
+1.  **Ensure MongoDB is running** (see "Start MongoDB" step above).
+2.  **Install `tox`** (if not already installed via `pip install -r requirements.txt`):
+    ```bash
+    pip install tox
+    ```
+3.  **Run tests:**
+    ```bash
+    tox
+    ```
+    If you want to run `pytest` directly (after activating your virtual environment and installing `pytest`):
+    ```bash
+    pytest tests/
+    ```
 
 ## Authentication and Authorization
 
 This application uses a simple, file-based system for managing user access. On startup, the server reads two JSON files from the project's root directory. **Any changes to these files require a server restart to take effect.**
+
+To make an authenticated request, the client must pass an `Authorization` header with a bearer token.
+
+**Example Header:**
+`Authorization: Bearer 730ea935edf1dd98eef8`
+
+If a valid token is provided, all API responses will include `userid` and `groups` fields identifying the authenticated user. If no token or an invalid token is provided, the user is treated as `"guest"`.
 
 ### Authentication (`user_authentication.json`)
 
@@ -48,20 +152,21 @@ The file format is a list of objects, each with a `userid` and an `auth_token`:
         "auth_token": "330829f6cb0b17ff21f5"
     }
 ]
+
 Within the application, you can get a user's ID from a token by calling a helper method:
-code
-Python
+
 from app.auth import get_userid_from_token
 
 # Example usage within a Flask route:
 # auth_header = request.headers.get('Authorization')
 # token = auth_header.split(" ") if auth_header else None
 # current_user_id = get_userid_from_token(token)  # Returns "dana" or "guest"
+
 Authorization (user_authorization.json)
 This file maps groups to lists of user IDs. It defines "who is in what group."
 The file format is a list of group objects:
-code
-JSON
+
+
 [
     {
         "group_name": "Hunny Bunnies",
@@ -77,8 +182,7 @@ JSON
     }
 ]
 Within the application, you can get a user's group memberships from their user ID:
-code
-Python
+
 from app.auth import get_groups_from_userid
 
 # Example usage:
@@ -88,121 +192,144 @@ from app.auth import get_groups_from_userid
 # guest_groups = get_groups_from_userid("some_unknown_user") 
 # # Returns ['Guests']
 
-### API Endpoints
-
-#### 1. Create a New Task
-
-*   **URL:** `/api/v1/tasks`
-*   **Method:** `POST`
-*   **Content-Type:** `application/json`
-
-**Request Body Example:**
-
-```json
-{
-    "userid": "user123",
-    "date": "2023-10-27",
-    "task_name": "Develop REST API",
-    "category": "Development",
-    "expected_hours": 8.0,
-    "actual_hours": 7.5,
-    "description": "Implement the Flask API for task management.",
-    "project_code": "TMTRACK-FLASK"
-}
-```
-
+API Endpoints
+1. Create a New Task
+URL: /api/v1/tasks
+Method: POST
+Content-Type: application/json
 Successful Response (201 Created):
-```json
-{
-    "message": "Task created successfully",
-    "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-    "status": "success"
-}
-```
 
+
+{
+    "userid": "dana",
+    "groups": ["Hunny Bunnies", "Administrators"],
+    "status": "success",
+    "message": "Task created successfully",
+    "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
+}
 
 Curl Example (Create):
-```json
-curl -X POST -H "Content-Type: application/json" -d '{
+
+
+curl -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 730ea935edf1dd98eef8" \
+  -d '{
     "userid": "curluser1",
     "date": "2023-10-27",
     "task_name": "Review documentation",
     "category": "Documentation",
-    "expected_hours": 2.0,
-    "description": "Review the updated README.md"
+    "expected_hours": 2.0
 }' http://127.0.0.1:5000/api/v1/tasks
-```
-
 
 2. Modify an Existing Task
 URL: /api/v1/tasks/<task_id>
 Method: PUT
 Content-Type: application/json
-Request Body Example:
-```json
-{
-    "expected_hours": 9.0,
-    "actual_hours": 8.5,
-    "description": "Adjusted hours based on new requirements."
-}
-```
-
 Successful Response (200 OK):
-```json
+
+
 {
+    "userid": "michelle",
+    "groups": ["Hunny Bunnies"],
+    "status": "success",
     "message": "Task updated successfully",
-    "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
-    "status": "success"
+    "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef"
 }
-```
 
 
 Curl Example (Modify):
-First, create a task and get its task_id (from the create curl output). Let's assume YOUR_TASK_ID is a1b2c3d4-e5f6-7890-1234-567890abcdef.
-```bash
-curl -X PUT -H "Content-Type: application/json" -d '{
-    "actual_hours": 2.5,
-    "notes": "Completed faster than expected."
-}' http://127.0.0.1:5000/api/v1/tasks/a1b2c3d4-e5f6-7890-1234-567890abcdef
-```
+
+
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 330829f6cb0b17ff21f5" \
+  -d '{"actual_hours": 2.5}' \
+  http://127.0.0.1:5000/api/v1/tasks/YOUR_TASK_ID
 
 3. Get a Single Task
 URL: /api/v1/tasks/<task_id>
 Method: GET
-Curl Example (Get Single):
-```bash
-curl http://127.0.0.1:5000/api/v1/tasks/a1b2c3d4-e5f6-7890-1234-567890abcdef
-```
+Successful Response (200 OK):
 
+
+{
+    "userid": "guest",
+    "groups": ["Guests"],
+    "status": "success",
+    "task": {
+        "task_id": "a1b2c3d4-e5f6-7890-1234-567890abcdef",
+        "userid": "curluser1",
+        "date": "2023-10-27",
+        "task_name": "Review documentation",
+        "category": "Documentation",
+        "expected_hours": 2.0,
+        "created_at": "...",
+        "updated_at": "..."
+    }
+}
+
+Curl Example (Get Single as Guest):
+code
+Bash
+curl http://127.0.0.1:5000/api/v1/tasks/YOUR_TASK_ID
 4. Get All Tasks
 URL: /api/v1/tasks
 Method: GET
 Curl Example (Get All):
-```bash
-curl http://127.0.0.1:5000/api/v1/tasks
-```
-
-5. Get Categories
-
-*   **URL:** `/api/v1/categories`
-*   **Method:** `GET`
-
-**Successful Response (200 OK):**
-
-```json
+code
+Bash
+curl -H "Authorization: Bearer 730ea935edf1dd98eef8" http://127.0.0.1:5000/api/v1/tasks
+5. Get Users
+URL: /api/v1/users
+Method: GET
+Successful Response (200 OK):
+code
+JSON
 {
+    "userid": "dana",
+    "groups": ["Hunny Bunnies", "Administrators"],
+    "users": ["dana", "michelle"]
+}
+Curl Example (Get Users):
+code
+Bash
+curl -H "Authorization: Bearer 730ea935edf1dd98eef8" http://127.0.0.1:5000/api/v1/users
+6. Get Categories
+URL: /api/v1/categories
+Method: GET
+Successful Response (200 OK):
+code
+JSON
+{
+    "userid": "dana",
+    "groups": ["Hunny Bunnies", "Administrators"],
     "categories": [
         "work",
         "personal",
         "billing"
     ]
 }
-
-
+Curl Example (Get Categories):
+code
+Bash
+curl -H "Authorization: Bearer 730ea935edf1dd98eef8" http://127.0.0.1:5000/api/v1/categories
+7. Update Categories
+URL: /api/v1/categories
+Method: PUT
+Curl Example (Update Categories):
+code
+Bash
+curl -X PUT \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 730ea935edf1dd98eef8" \
+  -d '{"categories": ["work", "new category"]}' \
+  http://127.0.0.1:5000/api/v1/categories
 Contributing
 Please read CONTRIBUTING.md for details on our code of conduct, and the process for submitting pull requests to us.
 License
 This project is licensed under the MIT License - see the LICENSE file for details.
 Contact
 For any questions or suggestions, please open an issue on GitHub.
+
 
