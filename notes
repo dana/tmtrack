@@ -136,3 +136,60 @@ connect to and use the real MongoDB database.
 
 Also add documentation as needed.
 </categories>
+
+<auth-and-authen-pt1>
+For authentication, please produce a plain JSON file located where the
+REST API server can read and parse it.  This file can be read only on
+startup and its contents kept as a static data structure inside of the
+REST API server.  The data structure can be called user_authentication and
+the on-filesystem file called user_authentication.json, and contains a
+mapping between userids and authentication tokens.  Start with the
+following file contents:
+ [  {   "userid": "dana",
+        "auth_token": "730ea935edf1dd98eef8"
+    },{
+        "userid": "michelle",
+        "auth_token": "330829f6cb0b17ff21f5"
+    }
+ ]
+
+Please create a method that takes in the auth_token as a
+single parameter and returns the associated userid.  If the passed
+token is missing or doesn't exist in the data structure, then return
+the string "guest".  This method needs to be easily callable
+from anywhere in the REST API server.
+
+Please add some relevant relevant tests and comprehensive documentation
+for this change.
+
+
+For authorization, please produce a plain JSON file located where the
+REST API server can read and parse it.  This file can be read only on
+startup and its contentws kept as a static data structure inside of the
+REST API server.  The data structure can be called user_authorization and
+the on-filesystem file called user_authorization.json, and contains a
+mapping between userids and user groups.  Start with the following file
+contents:
+ [  {   "group_name": "Hunny Bunnies",
+        "userids": ["dana", "michelle"]
+    },{
+        "group_name": "Administrators",
+        "userids": ["dana"]
+    },{
+        "group_name": "Guests",
+        "userids": ["guest"]
+    }
+ ]
+
+Please create a method that takes in the userid as a single parameter
+and returns the associate list of groups.  For example, given the above
+data, if the userid "dana" is passed, the method should return the list
+["Hunny Bunnies", "Administrators"]  If a userid that doesn't exist
+is passed, return the list ["Guests"]  This method needs to be easily
+callable from anywhere in the REST API server.
+
+Please add some relevant relevant tests and comprehensive documentation
+for this change.
+
+Please provide the necessary changes, and display all changed or added files in full.
+</auth-and-authen-pt1>

@@ -1,0 +1,21 @@
+[
+    {
+        "group_name": "Hunny Bunnies",
+        "userids": [
+            "dana",
+            "michelle"
+        ]
+    },
+    {
+        "group_name": "Administrators",
+        "userids": [
+            "dana"
+        ]
+    },
+    {
+        "group_name": "Guests",
+        "userids": [
+            "guest"
+        ]
+    }
+]
