@@ -135,14 +135,33 @@ def get_task(task_id):
     except Exception as e:
         return jsonify({**auth_info, "status": "error", "message": f"Failed to retrieve task: {str(e)}"}), 500
 
+from ..auth import get_userids_in_groups
+
 @tasks_bp.route('/tasks', methods=['GET'])
 def get_all_tasks():
-    """Retrieves all tasks."""
+    """
+    Retrieves tasks based on the authenticated user's group memberships.
+
+    This endpoint returns a list of tasks for all users who are in the same
+    groups as the authenticated user. For example, if the authenticated user
+    'dana' is in "Group A", this route will return tasks for all users in
+    "Group A". The 'guest' user will only see tasks associated with the
+    'guest' userid.
+
+    Returns:
+        A JSON response containing the list of tasks.
+    """
     userid, groups = get_auth_info_from_request()
     auth_info = {"userid": userid, "groups": groups}
 
     try:
-        tasks = mongo_service.get_all_tasks()
+        # Get the unique set of userids from all of the groups the
+        # authenticated user is in.
+        userids_in_my_groups = get_userids_in_groups(groups)
+        
+        # Fetch tasks for only those userids
+        tasks = mongo_service.get_all_tasks(userids=list(userids_in_my_groups))
+        
         for task in tasks:
             if '_id' in task:
                 task['_id'] = str(task['_id'])
