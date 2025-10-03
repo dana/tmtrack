@@ -5,6 +5,7 @@ from pathlib import Path
 # These will be populated once when the module is first imported.
 _token_to_userid_map = {}
 _userid_to_groups_map = {}
+_group_to_userids_map = {}
 
 # --- Helper function to load and process data ---
 def _load_auth_data():
@@ -13,7 +14,7 @@ def _load_auth_data():
     This function is executed once when the module is loaded.
     It is intended for internal use only.
     """
-    global _token_to_userid_map, _userid_to_groups_map
+    global _token_to_userid_map, _userid_to_groups_map, _group_to_userids_map
     
     # --- Load Authentication Data ---
     auth_file_path = Path(__file__).parent.parent / 'user_authentication.json'
@@ -35,18 +36,23 @@ def _load_auth_data():
         with open(authz_file_path, 'r') as f:
             authz_data = json.load(f)
             # Transform the group-centric list into a user-centric dictionary for efficient lookups
-            temp_map = {}
+            temp_user_map = {}
+            temp_group_map = {}
             for group in authz_data:
                 group_name = group['group_name']
-                for userid in group['userids']:
-                    if userid not in temp_map:
-                        temp_map[userid] = []
-                    temp_map[userid].append(group_name)
-            _userid_to_groups_map = temp_map
-        print(f"Successfully loaded authorizations for {_userid_to_groups_map.keys().__len__()} users.")
+                userids = group['userids']
+                temp_group_map[group_name] = userids
+                for userid in userids:
+                    if userid not in temp_user_map:
+                        temp_user_map[userid] = []
+                    temp_user_map[userid].append(group_name)
+            _userid_to_groups_map = temp_user_map
+            _group_to_userids_map = temp_group_map
+        print(f"Successfully loaded authorizations for {_userid_to_groups_map.keys().__len__()} users in {_group_to_userids_map.keys().__len__()} groups.")
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"WARNING: Could not load or parse user_authorization.json: {e}. Authorization will not work.")
         _userid_to_groups_map = {}
+        _group_to_userids_map = {}
 
 
 # --- Publicly accessible methods ---
@@ -88,6 +94,22 @@ def get_groups_from_userid(userid: str | None) -> list[str]:
         return ["Guests"]
     # The .get() method with a default value is perfect for this.
     return _userid_to_groups_map.get(userid, ["Guests"])
+
+
+def get_userids_in_groups(group_names: list[str]) -> set[str]:
+    """
+    Finds the unique set of userids that belong to any of the specified groups.
+
+    Args:
+        group_names: A list of group names to check.
+
+    Returns:
+        A set of unique userids found in those groups.
+    """
+    userids = set()
+    for group_name in group_names:
+        userids.update(_group_to_userids_map.get(group_name, []))
+    return userids
 
 
 # --- Main execution block for the module ---

@@ -122,11 +122,24 @@ class MongoService:
             print(f"An unexpected error occurred during get_task: {e}")
             raise e
 
-    def get_all_tasks(self):
-        """Retrieves all tasks."""
+    def get_all_tasks(self, userids: list[str] | None = None):
+        """
+        Retrieves all tasks, optionally filtered by a list of userids.
+
+        Args:
+            userids: An optional list of userid strings to filter the results.
+                     If None, all tasks are returned.
+
+        Returns:
+            A list of task documents.
+        """
         collection = self._get_db_connection()
+        query = {}
+        if userids is not None:
+            # Use the $in operator to find tasks where userid is in the provided list
+            query = {"userid": {"$in": userids}}
         try:
-            return list(collection.find({}))
+            return list(collection.find(query))
         except OperationFailure as e:
             print(f"MongoDB find operation failed: {e}")
             raise e

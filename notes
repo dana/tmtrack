@@ -229,3 +229,20 @@ as the update output.
 
 Please provide the necessary changes, and display all changed or added files in full.
 </auth-and-authen-pt2>
+
+<only-return-group-tasks>
+Given an incoming GET to the tasks route, consider the various groups the
+authenticated userid are in, and then find the unique set of userids in
+all of those groups.
+
+Change the tasks GET route to only return tasks that are associated with
+the above defined set of userids.
+
+No other behaviour in the application should change.
+
+Modify relevant relevant tests as needed and add comprehensive documentation
+for this change.
+
+Write the necessary changes.
+</only-return-group-tasks>
+

@@ -30,6 +30,11 @@ def ensure_mongodb_running():
 
 @pytest.fixture(scope='function')
 def app():
+    """
+    Creates a Flask app instance for testing, configured for the test database.
+    It also ensures the test database collections are cleared before and after
+    each test.
+    """
     app = create_app()
     app.config.update({
         "TESTING": True,
@@ -37,17 +42,19 @@ def app():
         "MONGO_DB_NAME": TEST_DB_NAME,
         "MONGO_COLLECTION_NAME": TEST_TASKS_COLLECTION
     })
+
     with app.app_context():
+        # The first call to MongoService will establish a connection.
         mongo_service = MongoService()
-        mongo_service.db = mongo_service.client[TEST_DB_NAME]
-        mongo_service.collection = mongo_service.db[TEST_TASKS_COLLECTION]
+        # Clear collections to ensure a clean state for the test.
         mongo_service.clear_collection()
         mongo_service.clear_categories_collection()
+
     yield app
+
+    # Teardown: runs after the test has completed.
     with app.app_context():
         mongo_service = MongoService()
-        mongo_service.db = mongo_service.client[TEST_DB_NAME]
-        mongo_service.collection = mongo_service.db[TEST_TASKS_COLLECTION]
         mongo_service.clear_collection()
         mongo_service.clear_categories_collection()
 
@@ -131,6 +138,57 @@ def test_get_all_tasks_as_guest(client):
     data = json.loads(response.data)
     assert_auth_info(data)
     assert data['status'] == 'success'
+
+def test_get_all_tasks_with_auth_and_filtering(client):
+    """
+    Test that GET /tasks returns only tasks for users in the same groups
+    as the authenticated user.
+    """
+    # Create tasks for different users
+    client.post('/api/v1/tasks', json={
+        "userid": "dana", "date": "2023-04-01", "task_name": "Dana's Task",
+        "category": "Work", "expected_hours": 8.0
+    }, headers=DANA_HEADERS)
+    client.post('/api/v1/tasks', json={
+        "userid": "michelle", "date": "2023-04-01", "task_name": "Michelle's Task",
+        "category": "Work", "expected_hours": 7.5
+    }, headers=MICHELLE_HEADERS)
+    client.post('/api/v1/tasks', json={
+        "userid": "guest", "date": "2023-04-01", "task_name": "Guest's Task",
+        "category": "Personal", "expected_hours": 1.0
+    }) # No headers for guest
+
+    # --- Test as dana (should see dana's and michelle's tasks) ---
+    # Dana is in "Hunny Bunnies" and "Administrators".
+    # Michelle is in "Hunny Bunnies".
+    # So, Dana should see tasks from all users in both groups.
+    response_dana = client.get('/api/v1/tasks', headers=DANA_HEADERS)
+    assert response_dana.status_code == 200
+    data_dana = json.loads(response_dana.data)
+    assert_auth_info(data_dana, "dana", DANA_GROUPS)
+    assert len(data_dana['tasks']) == 2
+    userids_seen_by_dana = {t['userid'] for t in data_dana['tasks']}
+    assert userids_seen_by_dana == {"dana", "michelle"}
+
+    # --- Test as michelle (should see dana's and michelle's tasks) ---
+    # Michelle is only in "Hunny Bunnies".
+    # Dana is also in "Hunny Bunnies".
+    # So, Michelle should see tasks from all users in that group.
+    response_michelle = client.get('/api/v1/tasks', headers=MICHELLE_HEADERS)
+    assert response_michelle.status_code == 200
+    data_michelle = json.loads(response_michelle.data)
+    assert_auth_info(data_michelle, "michelle", MICHELLE_GROUPS)
+    assert len(data_michelle['tasks']) == 2
+    userids_seen_by_michelle = {t['userid'] for t in data_michelle['tasks']}
+    assert userids_seen_by_michelle == {"dana", "michelle"}
+
+    # --- Test as guest (should only see guest's task) ---
+    response_guest = client.get('/api/v1/tasks') # No headers
+    assert response_guest.status_code == 200
+    data_guest = json.loads(response_guest.data)
+    assert_auth_info(data_guest)
+    assert len(data_guest['tasks']) == 1
+    assert data_guest['tasks'][0]['userid'] == 'guest'
 
 def test_list_users_with_auth(client):
     """Test the list_users endpoint with authentication."""
