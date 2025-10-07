@@ -190,6 +190,73 @@ def test_get_all_tasks_with_auth_and_filtering(client):
     assert len(data_guest['tasks']) == 1
     assert data_guest['tasks'][0]['userid'] == 'guest'
 
+def test_delete_task_success(client):
+    """Test successful deletion of a task by its owner."""
+    # Create a task as Dana
+    task_data = {
+        "userid": "dana", "date": "2023-01-01", "task_name": "Task to be deleted",
+        "category": "Testing", "expected_hours": 1.0
+    }
+    create_response = client.post('/api/v1/tasks', json=task_data, headers=DANA_HEADERS)
+    task_id = json.loads(create_response.data)['task_id']
+
+    # Delete the task as Dana
+    delete_response = client.delete(f'/api/v1/tasks/{task_id}', headers=DANA_HEADERS)
+    assert delete_response.status_code == 200
+    data = json.loads(delete_response.data)
+    assert_auth_info(data, "dana", DANA_GROUPS)
+    assert data['status'] == 'success'
+    assert data['message'] == 'Task deleted successfully'
+
+    # Verify the task is gone
+    get_response = client.get(f'/api/v1/tasks/{task_id}', headers=DANA_HEADERS)
+    assert get_response.status_code == 404
+
+def test_delete_task_unauthorized(client):
+    """Test that a user cannot delete a task owned by another user."""
+    # Create a task as Dana
+    task_data = {
+        "userid": "dana", "date": "2023-01-01", "task_name": "Dana's private task",
+        "category": "Testing", "expected_hours": 1.0
+    }
+    create_response = client.post('/api/v1/tasks', json=task_data, headers=DANA_HEADERS)
+    task_id = json.loads(create_response.data)['task_id']
+
+    # Attempt to delete the task as Michelle
+    delete_response = client.delete(f'/api/v1/tasks/{task_id}', headers=MICHELLE_HEADERS)
+    assert delete_response.status_code == 403
+    data = json.loads(delete_response.data)
+    assert_auth_info(data, "michelle", MICHELLE_GROUPS)
+    assert data['status'] == 'error'
+    assert "Forbidden" in data['message']
+
+def test_delete_task_not_found(client):
+    """Test deleting a task that does not exist."""
+    delete_response = client.delete('/api/v1/tasks/non-existent-id', headers=DANA_HEADERS)
+    assert delete_response.status_code == 404
+    data = json.loads(delete_response.data)
+    assert_auth_info(data, "dana", DANA_GROUPS)
+    assert data['status'] == 'error'
+    assert data['message'] == 'Task not found'
+
+def test_delete_task_as_guest(client):
+    """Test that a guest user cannot delete a task."""
+    # Create a task as Dana
+    task_data = {
+        "userid": "dana", "date": "2023-01-01", "task_name": "A task",
+        "category": "Testing", "expected_hours": 1.0
+    }
+    create_response = client.post('/api/v1/tasks', json=task_data, headers=DANA_HEADERS)
+    task_id = json.loads(create_response.data)['task_id']
+
+    # Attempt to delete as a guest
+    delete_response = client.delete(f'/api/v1/tasks/{task_id}') # No headers
+    assert delete_response.status_code == 403
+    data = json.loads(delete_response.data)
+    assert_auth_info(data) # Asserts guest user
+    assert data['status'] == 'error'
+    assert "Forbidden" in data['message']
+
 def test_list_users_with_auth(client):
     """Test the list_users endpoint with authentication."""
     response = client.get('/api/v1/users', headers=MICHELLE_HEADERS)
