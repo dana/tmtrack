@@ -135,6 +135,31 @@ def get_task(task_id):
     except Exception as e:
         return jsonify({**auth_info, "status": "error", "message": f"Failed to retrieve task: {str(e)}"}), 500
 
+@tasks_bp.route('/tasks/<string:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    """Deletes a single task by its task_id, with authorization check."""
+    userid, groups = get_auth_info_from_request()
+    auth_info = {"userid": userid, "groups": groups}
+
+    try:
+        task = mongo_service.get_task(task_id)
+        if not task:
+            return jsonify({**auth_info, "status": "error", "message": "Task not found"}), 404
+
+        # Authorization check: only the owner can delete the task
+        if task.get('userid') != userid:
+            return jsonify({**auth_info, "status": "error", "message": "Forbidden: You are not authorized to delete this task"}), 403
+
+        deleted_count = mongo_service.delete_task(task_id)
+        if deleted_count > 0:
+            return jsonify({**auth_info, "status": "success", "message": "Task deleted successfully"}), 200
+        else:
+            # This case might be redundant if get_task already confirmed existence, but good for safety
+            return jsonify({**auth_info, "status": "error", "message": "Task not found or already deleted"}), 404
+    except Exception as e:
+        return jsonify({**auth_info, "status": "error", "message": f"Failed to delete task: {str(e)}"}), 500
+
+
 from ..auth import get_userids_in_groups
 
 @tasks_bp.route('/tasks', methods=['GET'])

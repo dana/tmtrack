@@ -246,3 +246,12 @@ for this change.
 Write the necessary changes.
 </only-return-group-tasks>
 
+<delete-tasks>
+Please add a REST method to allow individual tasks to be deleted.  A task
+can only be deleted if the authorized userid is the same as the userid that
+owns the task.
+
+Please add and implement full test coverage for this change, and do not
+change any other behaviour of the app.
+</delete-tasks>
+
