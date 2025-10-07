@@ -255,3 +255,37 @@ Please add and implement full test coverage for this change, and do not
 change any other behaviour of the app.
 </delete-tasks>
 
+<dockerize>
+The goal is to produce a docker image of this REST API that can be
+deployed in production.
+
+The image should use a relevant ubuntu base.
+The image should contain everything needed to run this app,
+including modern Python, Flask, testing.
+The image can assume that a separate mongodb server is running on
+localhost:27017.
+The image should have a relevant suite of debugging and development
+tools.
+
+This change should update the README.md exactly explaining the steps
+necessary to not only produce the docker image but also how to invoke
+docker on the server side.
+
+Please make no changes to the behaviour of the application.
+
+Please create a uwsgi.ini configuration file that will correctly run
+this app in a production environment.
+
+When run as follows:
+$ uwsgi --http-socket :5000 --plugin python3 --module wsgi:app
+
+The following error is produced:
+
+ModuleNotFoundError: No module named 'wsgi'
+unable to load app 0 (mountpoint='') (callable not found or import error)
+
+Please suggest changes to the command-line invocation and/or make 
+necessary changes to the project so this can run under uwsgi.
+</dockerize>
+
+

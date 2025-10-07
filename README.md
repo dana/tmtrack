@@ -107,6 +107,32 @@ Follow these steps to install MongoDB Community Edition on your Ubuntu 24.04 sys
     ```
     The API will be available at `http://127.0.0.1:5000`.
 
+## Docker
+
+This project includes a `Dockerfile` to build and run the application in a containerized environment.
+
+### Prerequisites
+
+*   Docker installed and running.
+
+### Building the Docker Image
+
+1.  **Build the image:**
+    ```bash
+    docker build -t tmtrack .
+    ```
+
+### Running the Docker Container
+
+1.  **Run the container:**
+    ```bash
+    docker run -p 5000:5000 --network="host" tmtrack
+    ```
+    *   `-p 5000:5000`: Maps port 5000 on the host to port 5000 in the container.
+    *   `--network="host"`: Connects the container to the host's network. This is necessary for the application to connect to the MongoDB instance running on `localhost`.
+
+The API will be available at `http://127.0.0.1:5000`.
+
 ## Testing
 
 The project uses `tox` for comprehensive testing against a **live MongoDB instance**.
