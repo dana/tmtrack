@@ -43,3 +43,6 @@ Thumbs.db
 
 # MongoDB (if local data files are ever created here)
 data/db/
+
+tmtrack_backup.json
+

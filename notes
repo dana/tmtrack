@@ -289,3 +289,61 @@ necessary changes to the project so this can run under uwsgi.
 </dockerize>
 
 
+<operationalize>
+Please create twp standalone Python programs.
+
+First program does backup style dump of a designed MongoDB database.
+It should only dump the collections that are used for this REST API
+server.  It takes three arguments: the first a URL of a MongoDB database,
+the second a database name, and the optional third argument is a filename.
+Everything in the named database necessary for the function of the REST API
+app should be stored in the output file.  If a filename isn't defined, then
+select a reasonable default.
+
+The second program takes the backup file created by the first program
+and loads the data into a designed MongoDB database.  It takes three
+arguments: the first a URL of a MongoDB database to restore into,
+the second is a database name, and the optional third argument is a filename.
+The filename should default to the same filename as the first program uses.
+This program should load destructively into the designed MongoDB instance.
+That is, everything in the necessary collections in the target database
+should be removed prior to load, and after loading, everything should work
+as normal.
+
+Make no other changes to the REST API server.
+
+## Fixing error
+Please resolve the following error:
+
+$ python3 backup.py localhost:27017 tmtrack_db
+Starting backup for database 'tmtrack_db' from 'localhost:27017'...
+  - Backing up collection 'categories'...
+    > Found 1 documents.
+  - Backing up collection 'daily_tasks'...
+    > Found 41 documents.
+An unexpected error occurred: Object of type datetime is not JSON serializable
+Connection to MongoDB closed.
+
+
+Please make a stand alone program that will take a single required string
+argument, read the JSON data from user_authentication.json, append the
+passed argument to the end of the string associated with "auth_token",
+and save the JSON back to the file.
+
+Make no other changes to the app or project.
+
+## Fixing error:
+
+Please fix the following error:
+
+$ python3 ./update_token.py  foo
+Warning: 'auth_token' not found or not a string in the JSON data.
+Traceback (most recent call last):
+  File "/home/dana/tmtrack/./update_token.py", line 44, in <module>
+    update_auth_token(args.token_part)
+  File "/home/dana/tmtrack/./update_token.py", line 26, in update_auth_token
+    data['auth_token'] = new_token_part
+    ~~~~^^^^^^^^^^^^^^
+TypeError: list indices must be integers or slices, not str
+
+</operationalize>
