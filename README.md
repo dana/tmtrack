@@ -119,17 +119,19 @@ This project includes a `Dockerfile` to build and run the application in a conta
 
 1.  **Build the image:**
     ```bash
-    docker build -t tmtrack .
+    docker build -t dana/tmtrack:latest .
     ```
 
 ### Running the Docker Container
 
 1.  **Run the container:**
     ```bash
-    docker run -p 5000:5000 --network="host" tmtrack
+        $ docker run -v /home/app/user_authentication.json:/app/user_authentication.json -p 5000:5000 --network="host" dana/tmtrack:latest
+
     ```
     *   `-p 5000:5000`: Maps port 5000 on the host to port 5000 in the container.
     *   `--network="host"`: Connects the container to the host's network. This is necessary for the application to connect to the MongoDB instance running on `localhost`.
+    *   `-v /home/app/user_authentication.json:/app/user_authentication.json`: The real secrets are kept in a file separate from the repo, and exposed to the app with the -v flag
 
 The API will be available at `http://127.0.0.1:5000`.
 
@@ -357,5 +359,36 @@ License
 This project is licensed under the MIT License - see the LICENSE file for details.
 Contact
 For any questions or suggestions, please open an issue on GitHub.
+
+
+
+✦ Here are the instructions for installing the systemd service on your 
+  production Ubuntu server:
+
+  Installation Instructions
+
+   1. Copy the `systemd` service file to the correct directory:
+
+   1     sudo cp tmtrack.service 
+     /etc/systemd/system/tmtrack.service
+
+   2. Reload the `systemd` daemon to recognize the new service:
+
+   1     sudo systemctl daemon-reload
+
+   3. Enable the service to start on boot:
+
+   1     sudo systemctl enable tmtrack.service
+
+   4. Start the service immediately:
+
+   1     sudo systemctl start tmtrack.service
+
+   5. Check the status of the service to ensure it's running correctly:
+
+   1     sudo systemctl status tmtrack.service
+
+  This will show you if the service is active and running. You can also 
+  view the logs for your service with journalctl -u tmtrack.service.
 
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=TMTrack Docker container
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+ExecStart=/usr/bin/docker run -v /home/dana/user_authentication.json:/app/user_authentication.json -p 5000:5000 --network="host" dana/tmtrack:latest
+ExecStop=/usr/bin/docker stop $(/usr/bin/docker ps -q --filter ancestor=dana/tmtrack:latest)
+ExecStopPost=/usr/bin/docker rm $(/usr/bin/docker ps -a -q --filter ancestor=dana/tmtrack:latest)
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

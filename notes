@@ -347,3 +347,29 @@ Traceback (most recent call last):
 TypeError: list indices must be integers or slices, not str
 
 </operationalize>
+
+<ops-details>
+Please produce a systemd configuration file that will on Ubuntu systemd
+version 237.  This config file should keep the following command running
+at all times, including on startup:
+
+    $ docker run -v /home/app/user_authentication.json:/app/user_authentication.json -p 5000:5000 --network="host" dana/tmtrack:latest
+
+Please provide instructions about how to install this on a production 
+Ubuntu server.
+
+##next
+
+Please create a Makefile that, when invoked with the default/unspecified
+target, will run the following commands from the repo top level directory.
+Each command will only run if the one before it succeeded.
+
+    * tox
+    * docker build -t dana/tmtrack:latest .
+
+That Makefile should also have a target called "push" that invokes
+the following command from the repo top level directory.
+
+    * docker push dana/tmtrack:latest
+
+</ops-details>
