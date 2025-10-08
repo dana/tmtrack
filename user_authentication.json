@@ -6,5 +6,21 @@
     {
         "userid": "michelle",
         "auth_token": "330829f6cb0b17ff21f5"
+    },
+    {
+        "userid": "TemporaryHero",
+        "auth_token": "c379025dd04a981bd81d"
+    },
+    {
+        "userid": "WanderingPixel",
+        "auth_token": "d4b69c69dd0059b59bcc"
+    },
+    {
+        "userid": "JustBrowsing",
+        "auth_token": "92e7764d369ef2805f39"
+    },
+    {
+        "userid": "EphemeralEnigma",
+        "auth_token": "bf9da7d99f357584aa3b"
     }
 ]
