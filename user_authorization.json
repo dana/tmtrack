@@ -13,9 +13,39 @@
         ]
     },
     {
+        "group_name": "Very Hard Workers Doing Very Serious Work",
+        "userids": [
+            "guest",
+            "TemporaryHero",
+            "WanderingPixel"
+        ]
+    },
+    {
+        "group_name": "A Wrinkle in Time",
+        "userids": [
+            "guest",
+            "WanderingPixel",
+            "JustBrowsing",
+            "EphemeralEnigma"
+        ]
+    },
+    {
+        "group_name": "The Odd Squad",
+        "userids": [
+            "guest",
+            "TemporaryHero",
+            "JustBrowsing",
+            "EphemeralEnigma"
+        ]
+    },
+    {
         "group_name": "Guests",
         "userids": [
-            "guest"
+            "guest",
+            "TemporaryHero",
+            "WanderingPixel",
+            "JustBrowsing",
+            "EphemeralEnigma"
         ]
     }
 ]
