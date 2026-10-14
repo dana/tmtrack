@@ -1,0 +1,18 @@
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    chromium \
+    ca-certificates \
+    fonts-liberation \
+    socat \
+    && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 9333
+
+RUN useradd -m -u 1000 headless
+
+RUN printf '#!/bin/sh\nsocat TCP-LISTEN:9333,fork,reuseaddr TCP:127.0.0.1:9222 &\nexec su -s /bin/sh headless -c "chromium --headless=new --no-sandbox --disable-gpu --disable-dev-shm-usage --remote-debugging-port=9222 --remote-allow-origins='*'"\n' > /entrypoint.sh && chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
