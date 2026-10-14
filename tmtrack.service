@@ -1,12 +1,13 @@
 [Unit]
-Description=TMTrack Docker container
+Description=TMTrack Docker Container
 After=network.target docker.service
 Requires=docker.service
 
 [Service]
-ExecStart=/usr/bin/docker run -v /home/dana/user_authentication.json:/app/user_authentication.json -p 5000:5000 --network="host" dana/tmtrack:latest
-ExecStop=/usr/bin/docker stop $(/usr/bin/docker ps -q --filter ancestor=dana/tmtrack:latest)
-ExecStopPost=/usr/bin/docker rm $(/usr/bin/docker ps -a -q --filter ancestor=dana/tmtrack:latest)
+ExecStartPre=-/usr/bin/docker rm -f tmtrack
+ExecStart=/usr/bin/docker run --name tmtrack -v /home/dana/user_authentication.json:/app/user_authentication.json --network=host dana/tmtrack:latest
+ExecStop=/usr/bin/docker stop tmtrack
+ExecStopPost=-/usr/bin/docker rm -f tmtrack
 Restart=always
 RestartSec=5
 
