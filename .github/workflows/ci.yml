@@ -65,6 +65,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
+            type=sha,format=long,prefix=
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
