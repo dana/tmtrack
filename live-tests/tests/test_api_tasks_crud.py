@@ -6,7 +6,7 @@ import pytest
 def test_tasks_full_crud_lifecycle(creds, auth_headers):
     api_url = creds["api_url"]
     unique_suffix = uuid4().hex[:8]
-    task_name = f"livetest-task-{unique_suffix}"
+    task_name = f"livetest-crud-{unique_suffix}"
     today_str = datetime.date.today().strftime("%Y-%m-%d")
 
     # 1. CREATE TASK (POST)
@@ -71,12 +71,47 @@ def test_tasks_full_crud_lifecycle(creds, auth_headers):
         verify_del_resp = httpx.get(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
         assert verify_del_resp.status_code == 404
 
+
+def test_cross_user_delete_forbidden(creds, auth_headers, alt_headers):
+    """
+    Asserts that DELETE /tasks/<task_id> returns 403 Forbidden
+    when attempted by a user who is not the task owner.
+    """
+    api_url = creds["api_url"]
+    unique_suffix = uuid4().hex[:8]
+    task_name = f"livetest-crossdelete-{unique_suffix}"
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+
+    # 1. Create task as Primary User (TemporaryHero)
+    payload = {
+        "userid": creds["userid"],
+        "date": today_str,
+        "task_name": task_name,
+        "category": "work",
+        "expected_hours": 1.0
+    }
+    create_resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=payload, timeout=10.0)
+    assert create_resp.status_code == 201
+    task_id = create_resp.json().get("task_id")
+
+    try:
+        # 2. Attempt delete as Alternate User (WanderingPixel)
+        unauth_del = httpx.delete(f"{api_url}/tasks/{task_id}", headers=alt_headers, timeout=10.0)
+        assert unauth_del.status_code == 403
+        data = unauth_del.json()
+        assert data.get("status") == "error"
+        assert "Forbidden" in data.get("message", "")
+    finally:
+        # Clean up by true owner
+        httpx.delete(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
+
+
 def test_create_task_validation_missing_fields(creds, auth_headers):
     api_url = creds["api_url"]
     # Missing expected_hours and task_name
     bad_payload = {
         "userid": creds["userid"],
-        "date": "2026-10-13",
+        "date": "2026-10-14",
         "category": "work"
     }
     resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=bad_payload, timeout=10.0)
@@ -84,11 +119,12 @@ def test_create_task_validation_missing_fields(creds, auth_headers):
     assert resp.json().get("status") == "error"
     assert "errors" in resp.json()
 
+
 def test_create_task_validation_invalid_date_format(creds, auth_headers):
     api_url = creds["api_url"]
     bad_payload = {
         "userid": creds["userid"],
-        "date": "10-13-2026",  # Invalid format (expects YYYY-MM-DD)
+        "date": "10-14-2026",
         "task_name": "Invalid Date Task",
         "category": "work",
         "expected_hours": 1.0
@@ -97,6 +133,98 @@ def test_create_task_validation_invalid_date_format(creds, auth_headers):
     assert resp.status_code == 400
     assert resp.json().get("status") == "error"
     assert "date" in resp.json().get("errors", {})
+
+
+def test_create_task_validation_expected_hours_type(creds, auth_headers):
+    api_url = creds["api_url"]
+    bad_payload = {
+        "userid": creds["userid"],
+        "date": "2026-10-14",
+        "task_name": "Invalid Hours Type Task",
+        "category": "work",
+        "expected_hours": "two"
+    }
+    resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=bad_payload, timeout=10.0)
+    assert resp.status_code == 400
+    assert resp.json().get("status") == "error"
+    assert "expected_hours" in resp.json().get("errors", {})
+
+
+def test_create_task_with_zero_actual_hours(creds, auth_headers):
+    api_url = creds["api_url"]
+    unique_suffix = uuid4().hex[:8]
+    task_name = f"livetest-zerohours-{unique_suffix}"
+    payload = {
+        "userid": creds["userid"],
+        "date": "2026-10-14",
+        "task_name": task_name,
+        "category": "work",
+        "expected_hours": 2.0,
+        "actual_hours": 0.0
+    }
+    create_resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=payload, timeout=10.0)
+    assert create_resp.status_code == 201
+    task_id = create_resp.json().get("task_id")
+
+    try:
+        get_resp = httpx.get(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
+        assert get_resp.status_code == 200
+        assert get_resp.json()["task"]["actual_hours"] == 0.0
+    finally:
+        httpx.delete(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
+
+
+def test_extra_arbitrary_attributes_handling(creds, auth_headers):
+    api_url = creds["api_url"]
+    unique_suffix = uuid4().hex[:8]
+    
+    # String arbitrary attribute is accepted
+    valid_payload = {
+        "userid": creds["userid"],
+        "date": "2026-10-14",
+        "task_name": f"livetest-extra-valid-{unique_suffix}",
+        "category": "work",
+        "expected_hours": 1.0,
+        "custom_label": "arbitrary-string-value"
+    }
+    create_resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=valid_payload, timeout=10.0)
+    assert create_resp.status_code == 201
+    task_id = create_resp.json().get("task_id")
+
+    try:
+        get_resp = httpx.get(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
+        assert get_resp.status_code == 200
+        assert get_resp.json()["task"]["custom_label"] == "arbitrary-string-value"
+    finally:
+        httpx.delete(f"{api_url}/tasks/{task_id}", headers=auth_headers, timeout=10.0)
+
+    # Non-string arbitrary attribute is rejected
+    invalid_payload = {
+        "userid": creds["userid"],
+        "date": "2026-10-14",
+        "task_name": f"livetest-extra-invalid-{unique_suffix}",
+        "category": "work",
+        "expected_hours": 1.0,
+        "custom_label": 99999
+    }
+    fail_resp = httpx.post(f"{api_url}/tasks", headers=auth_headers, json=invalid_payload, timeout=10.0)
+    assert fail_resp.status_code == 400
+    assert "must be a string" in fail_resp.json().get("message", "")
+
+
+def test_put_task_nonexistent_returns_404(creds, auth_headers):
+    api_url = creds["api_url"]
+    random_uuid = str(uuid4())
+    resp = httpx.put(f"{api_url}/tasks/{random_uuid}", headers=auth_headers, json={"actual_hours": 1.0}, timeout=10.0)
+    assert resp.status_code == 404
+    assert resp.json().get("status") == "error"
+
+
+def test_post_task_requires_json(creds, auth_headers):
+    api_url = creds["api_url"]
+    resp = httpx.post(f"{api_url}/tasks", headers={**auth_headers, "Content-Type": "text/plain"}, content="raw string", timeout=10.0)
+    assert resp.status_code in (400, 415)
+
 
 def test_get_nonexistent_task_returns_404(creds, auth_headers):
     api_url = creds["api_url"]

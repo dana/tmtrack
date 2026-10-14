@@ -26,10 +26,10 @@ live-tests/
 │   └── run-headless-browser.sh        # Boots headless browser container on port 9333
 └── tests/
     ├── conftest.py                    # Pytest fixtures and credential ingestion
-    ├── test_api_auth.py               # Authentication and user/group authorization tests
-    ├── test_api_categories.py         # Category schema, retrieval, and validation tests
-    ├── test_api_tasks_crud.py         # Deep CRUD lifecycle (POST, GET, PUT, DELETE) and validation tests
-    ├── test_web_and_assets.py         # Static web UI, CSS, JS assets, and Nginx ingress tests
+    ├── test_api_auth.py               # Authentication and tenant/group authorization tests
+    ├── test_api_categories.py         # Category schema, idempotent update, and guarded validation tests
+    ├── test_api_tasks_crud.py         # Deep CRUD lifecycle, cross-user 403, and field validation tests
+    ├── test_web_and_assets.py         # Static web UI, CSS, JS asset fidelity, and Nginx proxy tests
     └── test_browser_e2e.py            # Playwright headless browser E2E interaction over CDP
 ```
 
@@ -60,29 +60,18 @@ TMTRACK_BASE_URL="https://www.realms.org"
 TMTRACK_API_URL="https://www.realms.org/api/v1"
 TMTRACK_UI_URL="https://www.realms.org/tmtrack/"
 
-# Test User Token (TemporaryHero from user_authentication.json)
-TMTRACK_AUTH_TOKEN="c379025dd04a981bd81d"
+# Primary Test User Credentials (e.g. TemporaryHero)
+TMTRACK_AUTH_TOKEN="<primary_test_user_token>"
 TMTRACK_USERID="TemporaryHero"
 
-# Secondary Test User Token (WanderingPixel)
-TMTRACK_ALT_TOKEN="d4b69c69dd0059b59bcc"
+# Secondary Test User Credentials (e.g. WanderingPixel)
+TMTRACK_ALT_TOKEN="<secondary_test_user_token>"
 TMTRACK_ALT_USERID="WanderingPixel"
+
+# Optional: Admin Credentials for RBAC positive control
+# TMTRACK_ADMIN_TOKEN="<admin_token>"
+# TMTRACK_ADMIN_USERID="dana"
 
 # Headless Browser CDP Endpoint
 HEADLESS_CHROME_CDP="http://127.0.0.1:9333"
 ```
-
----
-
-## Disaster Recovery Backup Archive
-
-A full comprehensive production disaster recovery backup was captured prior to test execution and is stored in:
-- `twentysixdotfour:/home/dana/backups/tmtrack/`
-- `thalos:/mnt/thalos-storage-a/dana-backups/tmtrack/` (Primary)
-- `thalos:/mnt/thalos-storage-b/dana-backups/tmtrack/` (Secondary)
-- `orostar:/home/dana/backups/tmtrack/`
-
----
-
-## TODO / Future Improvements
-- [ ] **Automated Backend Test Artifact Cleanup**: Implement a scheduled cleanup job on realms.org (e.g. systemd timer or cron) to periodically delete synthetic test tasks (`livetest-*`) from `tmtrack_db.daily_tasks`.
