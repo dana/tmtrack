@@ -48,12 +48,22 @@ def mongodb_uri():
     if not docker_bin:
         pytest.fail("MongoDB is not running and docker is not available in PATH.")
 
+    # Determine if docker requires sudo (e.g. if user is not in active docker group)
+    docker_cmd = [docker_bin]
+    test_run = subprocess.run([docker_bin, "ps"], capture_output=True)
+    if test_run.returncode != 0 and b"permission denied" in test_run.stderr.lower():
+        sudo_bin = shutil.which("sudo")
+        if sudo_bin:
+            sudo_run = subprocess.run([sudo_bin, "-n", docker_bin, "ps"], capture_output=True)
+            if sudo_run.returncode == 0:
+                docker_cmd = [sudo_bin, "-n", docker_bin]
+
     # Stop any leftover container with the same name
-    subprocess.run([docker_bin, "rm", "-f", CONTAINER_NAME], capture_output=True)
+    subprocess.run(docker_cmd + ["rm", "-f", CONTAINER_NAME], capture_output=True)
 
     # Start container
-    cmd = [
-        docker_bin, "run", "-d", "--rm",
+    cmd = docker_cmd + [
+        "run", "-d", "--rm",
         "-p", "27017:27017",
         "--name", CONTAINER_NAME,
         "mongo:7"
@@ -63,7 +73,7 @@ def mongodb_uri():
         pytest.fail(f"Failed to start MongoDB Docker container: {res.stderr}")
 
     def _cleanup():
-        subprocess.run([docker_bin, "stop", CONTAINER_NAME], capture_output=True)
+        subprocess.run(docker_cmd + ["stop", CONTAINER_NAME], capture_output=True)
 
     atexit.register(_cleanup)
 
