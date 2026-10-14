@@ -39,6 +39,10 @@ def validate_task_data(data, is_create=True):
                     errors[field] = f"'{field}' must be in YYYY-MM-DD format."
     return errors
 
+@tasks_bp.route('/happy', methods=['GET'])
+def happy_check():
+    return jsonify({"status": "ok"}), 200
+
 @tasks_bp.route('/users', methods=['GET'])
 def list_users():
     """Returns a static list of allowed userids."""
