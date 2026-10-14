@@ -1,6 +1,8 @@
+#!/usr/bin/env python3
 
 import argparse
 import json
+import os
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, OperationFailure
 
@@ -59,21 +61,28 @@ def backup_database(mongo_url, db_name, output_file):
             print("Connection to MongoDB closed.")
 
 def main():
+    default_mongo_url = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+    default_db_name = os.environ.get("MONGO_DB_NAME", "tmtrack_db")
+
     parser = argparse.ArgumentParser(
         description="Backup tool for the tmtrack MongoDB database.",
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
         "mongo_url",
-        help="The connection URL for the MongoDB instance (e.g., 'mongodb://localhost:27017/')."
+        nargs="?",
+        default=default_mongo_url,
+        help=f"The connection URL for the MongoDB instance (default: {default_mongo_url})."
     )
     parser.add_argument(
         "db_name",
-        help="The name of the database to back up (e.g., 'tmtrack_db')."
+        nargs="?",
+        default=default_db_name,
+        help=f"The name of the database to back up (default: {default_db_name})."
     )
     parser.add_argument(
         "output_file",
-        nargs='?',
+        nargs="?",
         default="tmtrack_backup.json",
         help="The optional path to the output backup file (default: tmtrack_backup.json)."
     )
