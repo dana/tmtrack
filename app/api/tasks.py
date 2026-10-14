@@ -32,7 +32,7 @@ def validate_task_data(data, is_create=True):
             expected_type = specs["type"]
             if not isinstance(value, expected_type):
                 errors[field] = f"'{field}' must be of type {expected_type.__name__}, but got {type(value).__name__}."
-            if field == "date" and expected_type == str:
+            elif field == "date" and isinstance(value, str):
                 try:
                     datetime.datetime.strptime(value, '%Y-%m-%d')
                 except ValueError:
