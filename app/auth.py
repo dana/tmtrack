@@ -1,3 +1,4 @@
+import os
 import json
 from pathlib import Path
 
@@ -17,7 +18,8 @@ def _load_auth_data():
     global _token_to_userid_map, _userid_to_groups_map, _group_to_userids_map
     
     # --- Load Authentication Data ---
-    auth_file_path = Path(__file__).parent.parent / 'user_authentication.json'
+    auth_file_env = os.environ.get('USER_AUTHENTICATION_FILE')
+    auth_file_path = Path(auth_file_env) if auth_file_env else Path(__file__).parent.parent / 'user_authentication.json'
     try:
         with open(auth_file_path, 'r') as f:
             auth_data = json.load(f)
@@ -31,7 +33,8 @@ def _load_auth_data():
         _token_to_userid_map = {}
 
     # --- Load Authorization Data ---
-    authz_file_path = Path(__file__).parent.parent / 'user_authorization.json'
+    authz_file_env = os.environ.get('USER_AUTHORIZATION_FILE')
+    authz_file_path = Path(authz_file_env) if authz_file_env else Path(__file__).parent.parent / 'user_authorization.json'
     try:
         with open(authz_file_path, 'r') as f:
             authz_data = json.load(f)

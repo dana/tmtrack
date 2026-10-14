@@ -1,0 +1,245 @@
+name: Merged PR Deployment Handoff
+
+on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
+
+permissions: {}
+
+concurrency:
+  group: merged-pr-deployment-handoff-tmtrack-main
+  cancel-in-progress: false
+
+jobs:
+  deployment-handoff:
+    name: deployment-handoff
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_HTML_URL: ${{ github.event.pull_request.html_url }}
+      INFRA_REPO: dana/ainulindale-infra
+      INFRA_PATH: apps/tmtrack/overlays/prod
+      APP_NAME: tmtrack
+
+    steps:
+      - name: Validate merged PR event
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${GITHUB_EVENT_NAME:-}" = "pull_request"
+          if ! [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "Unexpected PR head SHA: $HEAD_SHA" >&2
+            exit 1
+          fi
+          {
+            echo "## Deployment handoff input"
+            echo
+            echo "- Source repository: \`${GITHUB_REPOSITORY}\`"
+            echo "- Source PR: ${PR_HTML_URL}"
+            echo "- Source PR number: \`${PR_NUMBER}\`"
+            echo "- PR head SHA: \`${HEAD_SHA}\`"
+            echo "- Infra repository: \`${INFRA_REPO}\`"
+            echo "- Infra path: \`${INFRA_PATH}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install handoff tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ca-certificates curl git jq
+          tmpdir="$(mktemp -d)"
+          trap 'rm -rf "$tmpdir"' EXIT
+          curl -fsSLo "$tmpdir/install_kustomize.sh" \
+            https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh
+          bash "$tmpdir/install_kustomize.sh" 5.8.1 "$tmpdir"
+          sudo install -m 0755 "$tmpdir/kustomize" /usr/local/bin/kustomize
+          git --version
+          jq --version
+          kustomize version
+
+      - name: Commit PR head SHA to infra repo
+        shell: bash
+        env:
+          INFRA_REPO_TOKEN: ${{ secrets.INFRA_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${INFRA_REPO_TOKEN:-}" ]; then
+            echo "FAIL: INFRA_REPO_TOKEN is not available" >&2
+            exit 1
+          fi
+
+          workdir="$(mktemp -d)"
+          askpass="$workdir/git-askpass.sh"
+          trap 'rm -rf "$workdir"' EXIT
+
+          cat > "$askpass" <<'SH'
+          #!/usr/bin/env sh
+          case "$1" in
+            *Username*) printf '%s\n' 'x-access-token' ;;
+            *Password*) printf '%s\n' "$INFRA_REPO_TOKEN" ;;
+            *) printf '\n' ;;
+          esac
+          SH
+          chmod 0700 "$askpass"
+
+          export GIT_ASKPASS="$askpass"
+          export GIT_TERMINAL_PROMPT=0
+
+          git clone --depth 1 --branch main \
+            "https://github.com/${INFRA_REPO}.git" \
+            "$workdir/infra"
+
+          cd "$workdir/infra"
+
+          git config user.name "tmtrack-deployment-handoff"
+          git config user.email "tmtrack-deployment-handoff@users.noreply.github.com"
+
+          cd "$INFRA_PATH"
+
+          kustomize edit set image \
+            "ghcr.io/dana/${APP_NAME}=ghcr.io/dana/${APP_NAME}:${HEAD_SHA}"
+
+          cd "$workdir/infra"
+
+          changed_files="$(git diff --name-only)"
+
+          if [ -z "$changed_files" ]; then
+            {
+              echo
+              echo "## Infra update"
+              echo
+              echo "No infra change was required; \`${INFRA_PATH}/kustomization.yaml\` already used \`${HEAD_SHA}\`."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          expected_file="${INFRA_PATH}/kustomization.yaml"
+
+          if [ "$changed_files" != "$expected_file" ]; then
+            echo "FAIL: unexpected infra files changed:" >&2
+            printf '%s\n' "$changed_files" >&2
+            exit 1
+          fi
+
+          if ! grep -Eq "newTag:[[:space:]]+${HEAD_SHA}$" "$expected_file"; then
+            echo "FAIL: expected newTag ${HEAD_SHA} in $expected_file" >&2
+            cat "$expected_file" >&2
+            exit 1
+          fi
+
+          git add "$expected_file"
+          git commit \
+            -m "Deploy ${APP_NAME} ${HEAD_SHA}" \
+            -m "Source PR: ${PR_HTML_URL}" \
+            -m "Source PR number: ${PR_NUMBER}" \
+            -m "Image tag: ghcr.io/dana/${APP_NAME}:${HEAD_SHA}" \
+            -m "Argo CD deploys this immutable PR head SHA."
+
+          deploy_branch="deployment-handoff/${APP_NAME}-${HEAD_SHA}"
+
+          git push origin "HEAD:refs/heads/${deploy_branch}"
+
+          infra_owner="${INFRA_REPO%%/*}"
+          api_root="https://api.github.com/repos/${INFRA_REPO}"
+
+          existing_pr="$(
+            curl -fsS \
+              -H "Authorization: Bearer ${INFRA_REPO_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              --get \
+              --data-urlencode "state=open" \
+              --data-urlencode "base=main" \
+              --data-urlencode "head=${infra_owner}:${deploy_branch}" \
+              "${api_root}/pulls"
+          )"
+
+          infra_pr_number="$(jq -r '.[0].number // empty' <<<"$existing_pr")"
+          infra_pr_url="$(jq -r '.[0].html_url // empty' <<<"$existing_pr")"
+
+          if [ -z "$infra_pr_number" ]; then
+            pr_payload="$(
+              jq -n \
+                --arg title "Deploy ${APP_NAME} ${HEAD_SHA}" \
+                --arg head "$deploy_branch" \
+                --arg base "main" \
+                --arg body "Source PR: ${PR_HTML_URL}\n\nImage tag: ghcr.io/dana/${APP_NAME}:${HEAD_SHA}\n\nArgo CD deploys this immutable PR head SHA." \
+                '{title:$title, head:$head, base:$base, body:$body, maintainer_can_modify:false}'
+            )"
+
+            pr_response="$(
+              curl -fsS \
+                -X POST \
+                -H "Authorization: Bearer ${INFRA_REPO_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${api_root}/pulls" \
+                -d "$pr_payload"
+            )"
+
+            infra_pr_number="$(jq -r '.number' <<<"$pr_response")"
+            infra_pr_url="$(jq -r '.html_url' <<<"$pr_response")"
+          fi
+
+          echo "Infra PR: ${infra_pr_url}"
+
+          merge_payload="$(
+            jq -n \
+              --arg commit_title "Deploy ${APP_NAME} ${HEAD_SHA}" \
+              --arg commit_message "Source PR: ${PR_HTML_URL}\nImage tag: ghcr.io/dana/${APP_NAME}:${HEAD_SHA}" \
+              '{commit_title:$commit_title, commit_message:$commit_message, merge_method:"squash"}'
+          )"
+
+          merged="false"
+
+          for attempt in $(seq 1 40); do
+            echo "Attempting to merge infra PR #${infra_pr_number}, attempt ${attempt}..."
+
+            http_code="$(
+              curl -sS \
+                -o "${workdir}/merge-response.json" \
+                -w "%{http_code}" \
+                -X PUT \
+                -H "Authorization: Bearer ${INFRA_REPO_TOKEN}" \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
+                "${api_root}/pulls/${infra_pr_number}/merge" \
+                -d "$merge_payload"
+            )"
+
+            cat "${workdir}/merge-response.json"
+            echo
+
+            if [ "$http_code" = "200" ]; then
+              merged="true"
+              break
+            fi
+
+            sleep 15
+          done
+
+          if [ "$merged" != "true" ]; then
+            echo "FAIL: infra PR #${infra_pr_number} did not merge" >&2
+            exit 1
+          fi
+
+          {
+            echo
+            echo "## Infra update"
+            echo
+            echo "- Changed file: \`${expected_file}\`"
+            echo "- Image tag committed: \`${HEAD_SHA}\`"
+            echo "- Infra branch: \`${deploy_branch}\`"
+            echo "- Infra PR: ${infra_pr_url}"
+          } >> "$GITHUB_STEP_SUMMARY"

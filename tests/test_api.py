@@ -187,6 +187,12 @@ def test_delete_task_as_guest(client):
     assert "Forbidden" in data['message']
 
 
+def test_happy_endpoint(client):
+    response = client.get("/api/v1/happy")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "ok"
+
 def test_list_users_with_auth(client):
     """Test the list_users endpoint with authentication."""
     response = client.get('/api/v1/users', headers=MICHELLE_HEADERS)
