@@ -1,18 +1,34 @@
-.PHONY: all test clean clean-all push backup
+.PHONY: all test clean clean-all push backup dev-up dev-down dev-status dev-reset dev-screenshot
 
 all: test
 
 test:
 	./run-tests.sh
 
+dev-up:
+	./dev-stack.sh up
+
+dev-down:
+	./dev-stack.sh down
+
+dev-status:
+	./dev-stack.sh status
+
+dev-reset:
+	./dev-stack.sh reset
+
+dev-screenshot:
+	python3 dev-browser.py screenshot
+
 clean:
 	@echo "Cleaning temporary test, build, and bytecode artifacts..."
+	./dev-stack.sh down >/dev/null 2>&1 || true
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.py[co]" -delete 2>/dev/null || true
 	find . -type f -name "*.pyd" -delete 2>/dev/null || true
 	find . -type f -name ".coverage*" -delete 2>/dev/null || true
 	rm -rf .pytest_cache htmlcov .tox tmtrack.egg-info build dist venv/ .venv/ env/
-	rm -f tmtrack_backup.json tmtrack_backup.json.tmp
+	rm -f tmtrack_backup.json.tmp
 	@docker rm -f tmtrack-test-mongo 2>/dev/null || sudo -n docker rm -f tmtrack-test-mongo 2>/dev/null || true
 	@echo "Clean complete."
 

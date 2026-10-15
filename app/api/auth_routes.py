@@ -224,3 +224,36 @@ def logout():
     response.delete_cookie("tmtrack_session", path=cookie_path)
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@auth_bp.route("/auth/dev-login", methods=["GET"])
+def dev_login():
+    """
+    Local development login bypass. Only enabled when FLASK_ENV=development or FLASK_DEBUG is enabled.
+    Sets a local session cookie for the requested userid (defaults to diederich@gmail.com).
+    """
+    if os.environ.get("FLASK_ENV") != "development" and os.environ.get("FLASK_DEBUG") not in ("1", "true", "True"):
+        return jsonify({"error": "Dev login is only available in development mode"}), 403
+
+    userid = request.args.get("userid", "diederich@gmail.com")
+    session_id = secrets.token_urlsafe(32)
+    mongo_service.create_session(
+        session_id=session_id,
+        userid=userid,
+        email=userid,
+        name=userid.split("@")[0].title()
+    )
+
+    cookie_path = _get_cookie_path()
+    target_next = request.args.get("next", "/")
+    resp = redirect(target_next, code=303)
+    resp.set_cookie(
+        "tmtrack_session",
+        session_id,
+        max_age=7 * 24 * 3600,
+        secure=_is_request_secure(),
+        httponly=True,
+        samesite="Lax",
+        path=cookie_path
+    )
+    return resp
