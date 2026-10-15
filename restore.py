@@ -118,8 +118,18 @@ def main():
         help="The optional path to the input backup file (default: tmtrack_backup.json)."
     )
     
+    parser.add_argument(
+        "--yes", "-y",
+        action="store_true",
+        help="Automatically confirm destructive restore without prompting."
+    )
+    
     args = parser.parse_args()
     
+    if args.yes:
+        restore_database(args.mongo_url, args.db_name, args.input_file)
+        return
+
     # Add a confirmation step because this is a destructive operation
     confirm = input(f"This will destructively restore to database '{args.db_name}'.\n"
                     f"All data in the '{', '.join(COLLECTIONS_TO_RESTORE)}' collections will be DELETED.\n"

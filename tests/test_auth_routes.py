@@ -181,3 +181,20 @@ def test_logout(client, mongo_svc):
     assert resp.status_code == 200
     assert resp.get_json()["status"] == "logged_out"
     assert mongo_svc.get_session(session_id) is None
+
+
+def test_dev_login_disabled_by_default(client, monkeypatch):
+    """Test dev-login returns 403 when not in development mode."""
+    monkeypatch.delenv("FLASK_ENV", raising=False)
+    monkeypatch.delenv("FLASK_DEBUG", raising=False)
+    resp = client.get("/api/auth/dev-login?userid=diederich@gmail.com")
+    assert resp.status_code == 403
+
+
+def test_dev_login_success(client, monkeypatch, mongo_svc):
+    """Test dev-login creates session and sets cookie when FLASK_DEBUG is enabled."""
+    monkeypatch.setenv("FLASK_DEBUG", "1")
+    resp = client.get("/api/auth/dev-login?userid=diederich@gmail.com&next=/tasks")
+    assert resp.status_code == 303
+    assert resp.headers["Location"] == "/tasks"
+    assert "tmtrack_session" in resp.headers.get("Set-Cookie", "")
