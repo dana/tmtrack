@@ -2,50 +2,26 @@
     {
         "group_name": "Hunny Bunnies",
         "userids": [
-            "dana",
-            "michelle"
+            "diederich@gmail.com",
+            "msdiederich@gmail.com"
         ]
     },
     {
         "group_name": "Administrators",
         "userids": [
-            "dana"
+            "diederich@gmail.com"
         ]
     },
     {
-        "group_name": "Very Hard Workers Doing Very Serious Work",
+        "group_name": "ServiceAccounts",
         "userids": [
-            "guest",
-            "TemporaryHero",
-            "WanderingPixel"
-        ]
-    },
-    {
-        "group_name": "A Wrinkle in Time",
-        "userids": [
-            "guest",
-            "WanderingPixel",
-            "JustBrowsing",
-            "EphemeralEnigma"
-        ]
-    },
-    {
-        "group_name": "The Odd Squad",
-        "userids": [
-            "guest",
-            "TemporaryHero",
-            "JustBrowsing",
-            "EphemeralEnigma"
+            "service-automation"
         ]
     },
     {
         "group_name": "Guests",
         "userids": [
-            "guest",
-            "TemporaryHero",
-            "WanderingPixel",
-            "JustBrowsing",
-            "EphemeralEnigma"
+            "guest"
         ]
     }
 ]

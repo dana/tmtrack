@@ -1,3 +1,4 @@
+import datetime
 from pymongo import MongoClient
 from flask import current_app
 from pymongo.errors import ConnectionFailure, OperationFailure
@@ -175,3 +176,47 @@ class MongoService:
         except Exception as e:
             print(f"An unexpected error occurred during clear_collection: {e}")
             raise e
+
+    # --- Session methods for Google OAuth ---
+    def create_session(self, session_id: str, userid: str, email: str, name: str = "", google_sub: str = "", state: str = None, nonce: str = None, expires_at = None):
+        """Creates or replaces a session document in tmtrack_sessions."""
+        collection = self._get_collection('tmtrack_sessions')
+        doc = {
+            "session_id": session_id,
+            "userid": userid,
+            "email": email,
+            "name": name,
+            "google_sub": google_sub,
+            "state": state,
+            "nonce": nonce,
+            "created_at": datetime.datetime.now(datetime.timezone.utc),
+            "expires_at": expires_at
+        }
+        collection.replace_one({"session_id": session_id}, doc, upsert=True)
+        return doc
+
+    def get_session(self, session_id: str):
+        """Retrieves a session document by session_id."""
+        if not session_id:
+            return None
+        collection = self._get_collection('tmtrack_sessions')
+        return collection.find_one({"session_id": session_id})
+
+    def update_session(self, session_id: str, update_data: dict):
+        """Updates fields on an existing session."""
+        if not session_id:
+            return None
+        collection = self._get_collection('tmtrack_sessions')
+        return collection.update_one({"session_id": session_id}, {"$set": update_data})
+
+    def delete_session(self, session_id: str):
+        """Deletes a session by session_id."""
+        if not session_id:
+            return None
+        collection = self._get_collection('tmtrack_sessions')
+        return collection.delete_one({"session_id": session_id})
+
+    def clear_sessions_collection(self):
+        """Clears all documents from tmtrack_sessions for testing."""
+        collection = self._get_collection('tmtrack_sessions')
+        return collection.delete_many({})

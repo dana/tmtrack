@@ -4,6 +4,7 @@ from tests.conftest import (
     DANA_HEADERS,
     MICHELLE_HEADERS,
     DANA_GROUPS,
+    DANA_USERID,
     assert_auth_info,
 )
 
@@ -13,7 +14,7 @@ def test_get_categories_empty_initially(client):
     response = client.get('/api/v1/categories', headers=DANA_HEADERS)
     assert response.status_code == 200
     data = json.loads(response.data)
-    assert_auth_info(data, "dana", DANA_GROUPS)
+    assert_auth_info(data, DANA_USERID, DANA_GROUPS)
     assert data["categories"] == []
 
 

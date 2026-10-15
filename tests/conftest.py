@@ -17,6 +17,8 @@ TEST_CATEGORIES_COLLECTION = "categories"
 
 CONTAINER_NAME = "tmtrack-test-mongo"
 
+DANA_USERID = "diederich@gmail.com"
+MICHELLE_USERID = "msdiederich@gmail.com"
 DANA_TOKEN = "730ea935edf1dd98eef8"
 MICHELLE_TOKEN = "330829f6cb0b17ff21f5"
 DANA_HEADERS = {"Authorization": f"Bearer {DANA_TOKEN}"}
@@ -118,6 +120,7 @@ def app(mongodb_uri):
         mongo_service = MongoService()
         mongo_service.clear_collection()
         mongo_service.clear_categories_collection()
+        mongo_service.clear_sessions_collection()
 
     yield flask_app
 
@@ -125,6 +128,7 @@ def app(mongodb_uri):
         mongo_service = MongoService()
         mongo_service.clear_collection()
         mongo_service.clear_categories_collection()
+        mongo_service.clear_sessions_collection()
 
 
 @pytest.fixture(scope="function")

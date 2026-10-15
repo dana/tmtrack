@@ -3,6 +3,7 @@ from uuid import uuid4
 import datetime
 from ..services.mongo_service import MongoService
 from .utils import get_auth_info_from_request # Import the new utility
+from ..auth import get_userids_in_groups
 
 tasks_bp = Blueprint('tasks', __name__)
 mongo_service = MongoService()
@@ -45,11 +46,12 @@ def happy_check():
 
 @tasks_bp.route('/users', methods=['GET'])
 def list_users():
-    """Returns a static list of allowed userids."""
+    """Returns the list of allowed userids based on group memberships."""
     userid, groups = get_auth_info_from_request()
     auth_info = {"userid": userid, "groups": groups}
     
-    allowed_users = ["dana", "michelle"]
+    users = get_userids_in_groups(groups)
+    allowed_users = sorted(list(users)) if users else ["guest"]
     return jsonify({**auth_info, "users": allowed_users}), 200
 
 @tasks_bp.route('/tasks', methods=['POST'])
