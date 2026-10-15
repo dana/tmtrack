@@ -7,8 +7,8 @@ from app.api.utils import get_auth_info_from_request
 def test_get_userids_in_groups():
     """Test resolving multiple groups to a unique set of user IDs."""
     users = auth.get_userids_in_groups(["Hunny Bunnies", "Administrators"])
-    assert "dana" in users
-    assert "michelle" in users
+    assert "diederich@gmail.com" in users
+    assert "msdiederich@gmail.com" in users
 
 
 def test_get_userids_in_empty_groups():
@@ -21,7 +21,7 @@ def test_get_auth_info_from_request_with_valid_bearer(app):
     """Request with valid Authorization: Bearer <token> resolves userid and groups."""
     with app.test_request_context(headers={"Authorization": "Bearer 730ea935edf1dd98eef8"}):
         userid, groups = get_auth_info_from_request()
-        assert userid == "dana"
+        assert userid == "diederich@gmail.com"
         assert "Administrators" in groups
 
 
