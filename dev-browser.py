@@ -42,19 +42,22 @@ async def send_cmd(ws, method, params=None, msg_id=1):
             return msg
 
 
-async def take_screenshot(url, output_path, delay=1.0, user=None):
+async def take_screenshot(url, output_path, delay=1.0, user=None, current=False):
     tab = get_tab()
     target_url = url or "http://127.0.0.1:8080/"
     async with websockets.connect(tab["webSocketDebuggerUrl"], max_size=50*1024*1024) as ws:
         await send_cmd(ws, "Page.enable", msg_id=1)
         
-        if user:
-            encoded_next = urllib.parse.quote(target_url)
-            login_url = f"http://127.0.0.1:5050/api/auth/dev-login?userid={user}&next={encoded_next}"
-            await send_cmd(ws, "Page.navigate", {"url": login_url}, msg_id=2)
-            await asyncio.sleep(delay + 0.5)
+        if not current:
+            if user:
+                encoded_next = urllib.parse.quote(target_url)
+                login_url = f"http://127.0.0.1:5050/api/auth/dev-login?userid={user}&next={encoded_next}"
+                await send_cmd(ws, "Page.navigate", {"url": login_url}, msg_id=2)
+                await asyncio.sleep(delay + 0.5)
+            else:
+                await send_cmd(ws, "Page.navigate", {"url": target_url}, msg_id=3)
+                await asyncio.sleep(delay)
         else:
-            await send_cmd(ws, "Page.navigate", {"url": target_url}, msg_id=3)
             await asyncio.sleep(delay)
         
         res = await send_cmd(ws, "Page.captureScreenshot", {"format": "png"}, msg_id=4)
@@ -106,6 +109,7 @@ def main():
     p_snap.add_argument("--url", default="http://127.0.0.1:8080/", help="URL to navigate to")
     p_snap.add_argument("--user", default=None, help="User to log in as (e.g. diederich@gmail.com)")
     p_snap.add_argument("--delay", type=float, default=1.0, help="Wait seconds before capture")
+    p_snap.add_argument("--current", action="store_true", help="Capture current view without navigating")
 
     # eval
     p_eval = subparsers.add_parser("eval", help="Evaluate JavaScript expression")
@@ -119,7 +123,7 @@ def main():
     args = parser.parse_args()
 
     if args.action == "screenshot":
-        asyncio.run(take_screenshot(args.url, args.output, delay=args.delay, user=args.user))
+        asyncio.run(take_screenshot(args.url, args.output, delay=args.delay, user=args.user, current=args.current))
     elif args.action == "eval":
         asyncio.run(evaluate_js(args.expression))
     elif args.action == "click":

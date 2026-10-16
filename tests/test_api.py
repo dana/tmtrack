@@ -41,9 +41,9 @@ def test_create_task_as_guest(client):
 def test_modify_task_success(client):
     """Test successful modification of an existing task with auth."""
     create_response = client.post('/api/v1/tasks', json={
-        "userid": "moduser1", "date": "2023-02-01", "task_name": "Task to Modify",
+        "userid": MICHELLE_USERID, "date": "2023-02-01", "task_name": "Task to Modify",
         "category": "Modification", "expected_hours": 5.0
-    }, headers=DANA_HEADERS)
+    }, headers=MICHELLE_HEADERS)
     created_task_id = json.loads(create_response.data)['task_id']
 
     modify_data = {"actual_hours": 4.5}
@@ -52,6 +52,23 @@ def test_modify_task_success(client):
     data = json.loads(response.data)
     assert_auth_info(data, MICHELLE_USERID, MICHELLE_GROUPS)
     assert data['status'] == 'success'
+
+
+def test_modify_task_unauthorized(client):
+    """Test that a non-admin user cannot modify another user's task."""
+    create_response = client.post('/api/v1/tasks', json={
+        "userid": DANA_USERID, "date": "2023-02-01", "task_name": "Dana's Task",
+        "category": "Modification", "expected_hours": 5.0
+    }, headers=DANA_HEADERS)
+    created_task_id = json.loads(create_response.data)['task_id']
+
+    modify_data = {"actual_hours": 4.5}
+    response = client.put(f'/api/v1/tasks/{created_task_id}', json=modify_data, headers=MICHELLE_HEADERS)
+    assert response.status_code == 403
+    data = json.loads(response.data)
+    assert_auth_info(data, MICHELLE_USERID, MICHELLE_GROUPS)
+    assert data['status'] == 'error'
+    assert "Forbidden" in data['message']
 
 
 def test_get_task_success(client):

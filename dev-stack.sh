@@ -142,13 +142,13 @@ up() {
         export FLASK_ENV="development"
         export FLASK_DEBUG="1"
         export TMTRACK_COOKIE_PATH="/"
-        exec "${SCRIPT_DIR}/venv/bin/python" -m flask run --port "${DEV_API_PORT}"
+        exec "${SCRIPT_DIR}/venv/bin/python" -m flask run --host 0.0.0.0 --port "${DEV_API_PORT}"
     ) > "${LOG_DIR}/api.log" 2>&1 &
     API_PID=$!
 
     # 4. Start Frontend UI
     echo "Starting Frontend UI server on port ${DEV_UI_PORT}..."
-    python3 -m http.server --directory "${UI_DIR}" --bind 127.0.0.1 "${DEV_UI_PORT}" > "${LOG_DIR}/ui.log" 2>&1 &
+    python3 -m http.server --directory "${UI_DIR}" --bind 0.0.0.0 "${DEV_UI_PORT}" > "${LOG_DIR}/ui.log" 2>&1 &
     UI_PID=$!
 
     # 5. Start Headless Chrome

@@ -77,6 +77,10 @@ def create_task():
         if key not in TASK_FIELDS and key not in INTERNAL_FIELDS and not isinstance(value, str):
             return jsonify({**auth_info, "status": "error", "message": f"Arbitrary attribute '{key}' must be a string."}), 400
 
+    target_userid = data.get('userid')
+    if userid != 'guest' and target_userid != userid and 'Administrators' not in groups and 'ServiceAccounts' not in groups:
+        return jsonify({**auth_info, "status": "error", "message": "Forbidden: You are not authorized to create tasks for another user"}), 403
+
     try:
         mongo_service.insert_task(data)
         success_response = {
@@ -97,6 +101,14 @@ def modify_task(task_id):
     data = request.get_json()
     if not data:
         return jsonify({**auth_info, "status": "error", "message": "Request must be JSON"}), 400
+
+    task = mongo_service.get_task(task_id)
+    if not task:
+        return jsonify({**auth_info, "status": "error", "message": f"Task with task_id '{task_id}' not found"}), 404
+
+    # Authorization check: only the owner or an Administrator can modify the task
+    if task.get('userid') != userid and 'Administrators' not in groups:
+        return jsonify({**auth_info, "status": "error", "message": "Forbidden: You are not authorized to modify this task"}), 403
 
     if 'task_id' in data:
         del data['task_id']
@@ -134,6 +146,9 @@ def get_task(task_id):
     try:
         task = mongo_service.get_task(task_id)
         if task:
+            userids_in_my_groups = get_userids_in_groups(groups)
+            if task.get('userid') not in userids_in_my_groups and 'Administrators' not in groups:
+                return jsonify({**auth_info, "status": "error", "message": "Forbidden: You are not authorized to view this task"}), 403
             if '_id' in task:
                 task['_id'] = str(task['_id'])
             return jsonify({**auth_info, "status": "success", "task": task}), 200
@@ -152,15 +167,14 @@ def delete_task(task_id):
         if not task:
             return jsonify({**auth_info, "status": "error", "message": "Task not found"}), 404
 
-        # Authorization check: only the owner can delete the task
-        if task.get('userid') != userid:
+        # Authorization check: only the owner or an Administrator can delete the task
+        if task.get('userid') != userid and 'Administrators' not in groups:
             return jsonify({**auth_info, "status": "error", "message": "Forbidden: You are not authorized to delete this task"}), 403
 
         deleted_count = mongo_service.delete_task(task_id)
         if deleted_count > 0:
             return jsonify({**auth_info, "status": "success", "message": "Task deleted successfully"}), 200
         else:
-            # This case might be redundant if get_task already confirmed existence, but good for safety
             return jsonify({**auth_info, "status": "error", "message": "Task not found or already deleted"}), 404
     except Exception as e:
         return jsonify({**auth_info, "status": "error", "message": f"Failed to delete task: {str(e)}"}), 500
@@ -168,31 +182,68 @@ def delete_task(task_id):
 
 from ..auth import get_userids_in_groups
 
+@tasks_bp.route('/days', methods=['GET'])
+def get_days():
+    """
+    Retrieves daily summary metadata (task counts, total hours, incomplete counts)
+    for a user, optionally scoped to a date range.
+    """
+    userid, groups = get_auth_info_from_request()
+    auth_info = {"userid": userid, "groups": groups}
+
+    userids_in_my_groups = get_userids_in_groups(groups)
+    target_userid = request.args.get('userid', userid)
+
+    if target_userid not in userids_in_my_groups and 'Administrators' not in groups:
+        return jsonify({**auth_info, "status": "error", "message": f"Forbidden: Not authorized to view days for user '{target_userid}'"}), 403
+
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    try:
+        summary = mongo_service.get_days_summary(
+            userid=target_userid,
+            start_date=start_date,
+            end_date=end_date
+        )
+        return jsonify({**auth_info, "status": "success", **summary}), 200
+    except Exception as e:
+        return jsonify({**auth_info, "status": "error", "message": f"Failed to retrieve days summary: {str(e)}"}), 500
+
+
 @tasks_bp.route('/tasks', methods=['GET'])
 def get_all_tasks():
     """
-    Retrieves tasks based on the authenticated user's group memberships.
-
-    This endpoint returns a list of tasks for all users who are in the same
-    groups as the authenticated user. For example, if the authenticated user
-    'dana' is in "Group A", this route will return tasks for all users in
-    "Group A". The 'guest' user will only see tasks associated with the
-    'guest' userid.
-
-    Returns:
-        A JSON response containing the list of tasks.
+    Retrieves tasks based on group memberships and optional query filters:
+    - userid: filter by a specific user (must be in shared groups)
+    - date: exact single date (YYYY-MM-DD)
+    - start_date / end_date: date range (inclusive)
     """
     userid, groups = get_auth_info_from_request()
     auth_info = {"userid": userid, "groups": groups}
 
     try:
-        # Get the unique set of userids from all of the groups the
-        # authenticated user is in.
         userids_in_my_groups = get_userids_in_groups(groups)
-        
-        # Fetch tasks for only those userids
-        tasks = mongo_service.get_all_tasks(userids=list(userids_in_my_groups))
-        
+        filter_userid = request.args.get('userid')
+
+        if filter_userid:
+            if filter_userid not in userids_in_my_groups and 'Administrators' not in groups:
+                return jsonify({**auth_info, "status": "error", "message": f"Forbidden: Not authorized to view tasks for user '{filter_userid}'"}), 403
+            target_userids = [filter_userid]
+        else:
+            target_userids = list(userids_in_my_groups) if userids_in_my_groups else [userid]
+
+        date = request.args.get('date')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+
+        tasks = mongo_service.get_all_tasks(
+            userids=target_userids,
+            date=date,
+            start_date=start_date,
+            end_date=end_date
+        )
+
         for task in tasks:
             if '_id' in task:
                 task['_id'] = str(task['_id'])
