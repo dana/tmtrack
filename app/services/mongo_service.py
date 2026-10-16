@@ -123,13 +123,16 @@ class MongoService:
             print(f"An unexpected error occurred during get_task: {e}")
             raise e
 
-    def get_all_tasks(self, userids: list[str] | None = None):
+    def get_all_tasks(self, userids: list[str] | None = None, start_date: str | None = None, end_date: str | None = None, date: str | None = None, sort_desc: bool = True):
         """
-        Retrieves all tasks, optionally filtered by a list of userids.
+        Retrieves tasks, optionally filtered by userids and/or date range.
 
         Args:
             userids: An optional list of userid strings to filter the results.
-                     If None, all tasks are returned.
+            start_date: Optional start date (inclusive, YYYY-MM-DD).
+            end_date: Optional end date (inclusive, YYYY-MM-DD).
+            date: Optional exact date (YYYY-MM-DD). Takes precedence over start_date/end_date.
+            sort_desc: If True, sorts descending by date (newest first).
 
         Returns:
             A list of task documents.
@@ -137,15 +140,109 @@ class MongoService:
         collection = self._get_db_connection()
         query = {}
         if userids is not None:
-            # Use the $in operator to find tasks where userid is in the provided list
-            query = {"userid": {"$in": userids}}
+            query["userid"] = {"$in": userids}
+        if date is not None:
+            query["date"] = date
+        else:
+            date_filter = {}
+            if start_date is not None:
+                date_filter["$gte"] = start_date
+            if end_date is not None:
+                date_filter["$lte"] = end_date
+            if date_filter:
+                query["date"] = date_filter
+
+        sort_dir = -1 if sort_desc else 1
         try:
-            return list(collection.find(query))
+            return list(collection.find(query).sort("date", sort_dir))
         except OperationFailure as e:
             print(f"MongoDB find operation failed: {e}")
             raise e
         except Exception as e:
             print(f"An unexpected error occurred during get_all_tasks: {e}")
+            raise e
+
+    def get_days_summary(self, userid: str, start_date: str | None = None, end_date: str | None = None):
+        """
+        Aggregates daily task counts, total hours, and incomplete flags for a given user.
+        Also returns global incomplete dates across all history for this user.
+        """
+        collection = self._get_db_connection()
+        try:
+            match_stage = {"userid": userid}
+            date_filter = {}
+            if start_date is not None:
+                date_filter["$gte"] = start_date
+            if end_date is not None:
+                date_filter["$lte"] = end_date
+            if date_filter:
+                match_stage["date"] = date_filter
+
+            pipeline = [
+                {"$match": match_stage},
+                {"$group": {
+                    "_id": "$date",
+                    "task_count": {"$sum": 1},
+                    "total_expected": {"$sum": {"$ifNull": ["$expected_hours", 0]}},
+                    "total_actual": {"$sum": {"$ifNull": ["$actual_hours", 0]}},
+                    "incomplete_count": {
+                        "$sum": {
+                            "$cond": [
+                                {
+                                    "$or": [
+                                        {"$eq": ["$actual_hours", None]},
+                                        {"$eq": [{"$type": "$actual_hours"}, "missing"]}
+                                    ]
+                                },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }},
+                {"$sort": {"_id": -1}}
+            ]
+
+            days = []
+            for doc in collection.aggregate(pipeline):
+                incomplete_count = doc.get("incomplete_count", 0)
+                days.append({
+                    "date": doc["_id"],
+                    "task_count": doc.get("task_count", 0),
+                    "total_expected": round(float(doc.get("total_expected", 0.0)), 2),
+                    "total_actual": round(float(doc.get("total_actual", 0.0)), 2),
+                    "incomplete_count": incomplete_count,
+                    "is_incomplete": bool(incomplete_count > 0)
+                })
+
+            # Global incomplete dates for this user across all history
+            incomplete_pipeline = [
+                {
+                    "$match": {
+                        "userid": userid,
+                        "$or": [
+                            {"actual_hours": None},
+                            {"actual_hours": {"$exists": False}}
+                        ]
+                    }
+                },
+                {"$group": {"_id": "$date"}},
+                {"$sort": {"_id": -1}}
+            ]
+            global_incomplete_dates = [doc["_id"] for doc in collection.aggregate(incomplete_pipeline)]
+
+            return {
+                "userid": userid,
+                "days": days,
+                "total_days": len(days),
+                "total_incomplete_days": len(global_incomplete_dates),
+                "incomplete_dates": global_incomplete_dates
+            }
+        except OperationFailure as e:
+            print(f"MongoDB aggregation failed: {e}")
+            raise e
+        except Exception as e:
+            print(f"An unexpected error occurred during get_days_summary: {e}")
             raise e
 
     def delete_task(self, task_id):
