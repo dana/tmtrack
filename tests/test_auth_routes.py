@@ -198,3 +198,74 @@ def test_dev_login_success(client, monkeypatch, mongo_svc):
     assert resp.status_code == 303
     assert resp.headers["Location"] == "/tasks"
     assert "tmtrack_session" in resp.headers.get("Set-Cookie", "")
+
+
+def test_password_login_success_json(client, mongo_svc):
+    resp = client.post("/api/auth/login", json={
+        "username": "service-agent",
+        "password": "svc-tmtrack-b7ad2fad77801a35"
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["authenticated"] is True
+    assert data["userid"] == "service-agent"
+    assert "ServiceAccounts" in data["groups"]
+    assert "tmtrack_session" in resp.headers.get("Set-Cookie", "")
+
+
+def test_password_login_success_form_with_redirect(client, mongo_svc):
+    resp = client.post("/api/auth/login", data={
+        "username": "service-agent",
+        "password": "svc-tmtrack-b7ad2fad77801a35",
+        "next": "/tmtrack/"
+    })
+    assert resp.status_code == 303
+    assert resp.headers["Location"] == "/tmtrack/"
+    assert "tmtrack_session" in resp.headers.get("Set-Cookie", "")
+
+
+def test_password_login_invalid_password(client):
+    resp = client.post("/api/auth/login", json={
+        "username": "service-agent",
+        "password": "wrong-password"
+    })
+    assert resp.status_code == 401
+    assert "Invalid" in resp.get_json()["error"]
+
+
+def test_password_login_missing_fields(client):
+    resp = client.post("/api/auth/login", json={"username": "service-agent"})
+    assert resp.status_code == 400
+
+
+def test_password_login_basic_auth(client):
+    import base64
+    creds = base64.b64encode(b"service-agent:svc-tmtrack-b7ad2fad77801a35").decode()
+    resp = client.get("/api/v1/users", headers={"Authorization": f"Basic {creds}"})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["userid"] == "service-agent"
+    assert "ServiceAccounts" in data["groups"]
+
+
+def test_service_account_visibility_isolation(client, mongo_svc):
+    # 1. Dana logs in
+    session_dana = "session_dana_test"
+    mongo_svc.create_session(session_id=session_dana, userid="diederich@gmail.com", email="diederich@gmail.com")
+    client.set_cookie("tmtrack_session", session_dana, domain="localhost", path="/")
+    resp_dana = client.get("/api/v1/users")
+    assert resp_dana.status_code == 200
+    users_dana = resp_dana.get_json()["users"]
+    assert "diederich@gmail.com" in users_dana
+    assert "service-agent" not in users_dana
+    assert "service-automation" not in users_dana
+
+    # 2. Service agent logs in
+    session_svc = "session_svc_test"
+    mongo_svc.create_session(session_id=session_svc, userid="service-agent", email="service-agent")
+    client.set_cookie("tmtrack_session", session_svc, domain="localhost", path="/")
+    resp_svc = client.get("/api/v1/users")
+    assert resp_svc.status_code == 200
+    users_svc = resp_svc.get_json()["users"]
+    assert "service-agent" in users_svc
+    assert "diederich@gmail.com" not in users_svc

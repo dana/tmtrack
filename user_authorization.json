@@ -15,7 +15,8 @@
     {
         "group_name": "ServiceAccounts",
         "userids": [
-            "service-automation"
+            "service-automation",
+            "service-agent"
         ]
     },
     {

@@ -1,10 +1,13 @@
 import os
 import json
+import secrets
 from pathlib import Path
+from werkzeug.security import check_password_hash
 
 # --- Data Structures ---
 # These will be populated once when the module is first imported.
 _token_to_userid_map = {}
+_userid_to_auth_map = {}
 _userid_to_groups_map = {}
 _group_to_userids_map = {}
 
@@ -15,35 +18,39 @@ def _load_auth_data():
     This function is executed once when the module is loaded.
     It is intended for internal use only.
     """
-    global _token_to_userid_map, _userid_to_groups_map, _group_to_userids_map
+    global _token_to_userid_map, _userid_to_auth_map, _userid_to_groups_map, _group_to_userids_map
     
     # --- Load Authentication Data ---
-    auth_file_env = os.environ.get('USER_AUTHENTICATION_FILE')
-    auth_file_path = Path(auth_file_env) if auth_file_env else Path(__file__).parent.parent / 'user_authentication.json'
+    auth_file_env = os.environ.get("USER_AUTHENTICATION_FILE")
+    auth_file_path = Path(auth_file_env) if auth_file_env else Path(__file__).parent.parent / "user_authentication.json"
     try:
-        with open(auth_file_path, 'r') as f:
+        with open(auth_file_path, "r") as f:
             auth_data = json.load(f)
-            # Transform the list into a dictionary for efficient token lookups
+            # Transform the list into dictionaries for efficient lookups
             _token_to_userid_map = {
-                item['auth_token']: item['userid'] for item in auth_data
+                item["auth_token"]: item["userid"] for item in auth_data if "auth_token" in item and "userid" in item
             }
-        print(f"Successfully loaded {_token_to_userid_map.keys().__len__()} user authentication tokens.")
+            _userid_to_auth_map = {
+                item["userid"]: item for item in auth_data if "userid" in item
+            }
+        print(f"Successfully loaded {_token_to_userid_map.keys().__len__()} user authentication tokens and {_userid_to_auth_map.keys().__len__()} user auth records.")
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         print(f"WARNING: Could not load or parse user_authentication.json: {e}. Authentication will not work.")
         _token_to_userid_map = {}
+        _userid_to_auth_map = {}
 
     # --- Load Authorization Data ---
-    authz_file_env = os.environ.get('USER_AUTHORIZATION_FILE')
-    authz_file_path = Path(authz_file_env) if authz_file_env else Path(__file__).parent.parent / 'user_authorization.json'
+    authz_file_env = os.environ.get("USER_AUTHORIZATION_FILE")
+    authz_file_path = Path(authz_file_env) if authz_file_env else Path(__file__).parent.parent / "user_authorization.json"
     try:
-        with open(authz_file_path, 'r') as f:
+        with open(authz_file_path, "r") as f:
             authz_data = json.load(f)
             # Transform the group-centric list into a user-centric dictionary for efficient lookups
             temp_user_map = {}
             temp_group_map = {}
             for group in authz_data:
-                group_name = group['group_name']
-                userids = group['userids']
+                group_name = group["group_name"]
+                userids = group["userids"]
                 temp_group_map[group_name] = userids
                 for userid in userids:
                     if userid not in temp_user_map:
@@ -79,6 +86,46 @@ def get_userid_from_token(auth_token: str | None) -> str:
     return _token_to_userid_map.get(auth_token, "guest")
 
 
+def verify_user_credentials(userid: str | None, password: str | None) -> bool:
+    """
+    Verifies a user or service account password or token.
+    Supports password_hash (scrypt/pbkdf2), plaintext password, or auth_token matching.
+
+    Args:
+        userid: The userid string to check.
+        password: The password string to verify.
+
+    Returns:
+        True if credentials match, False otherwise.
+    """
+    if not userid or not password:
+        return False
+    user_entry = _userid_to_auth_map.get(userid)
+    if not user_entry:
+        return False
+
+    # 1. Match hashed password
+    password_hash = user_entry.get("password_hash")
+    if password_hash:
+        try:
+            if check_password_hash(password_hash, str(password)):
+                return True
+        except Exception:
+            pass
+
+    # 2. Match plaintext password
+    stored_password = user_entry.get("password")
+    if stored_password and secrets.compare_digest(str(stored_password), str(password)):
+        return True
+
+    # 3. Match auth_token as password fallback
+    auth_token = user_entry.get("auth_token")
+    if auth_token and secrets.compare_digest(str(auth_token), str(password)):
+        return True
+
+    return False
+
+
 def get_groups_from_userid(userid: str | None) -> list[str]:
     """
     Retrieves the list of group names a user belongs to.
@@ -95,7 +142,6 @@ def get_groups_from_userid(userid: str | None) -> list[str]:
     """
     if not userid:
         return ["Guests"]
-    # The .get() method with a default value is perfect for this.
     return _userid_to_groups_map.get(userid, ["Guests"])
 
 

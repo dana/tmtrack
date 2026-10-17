@@ -10,5 +10,11 @@
     {
         "userid": "service-automation",
         "auth_token": "b8f6c3194a08e17d91cb"
+    },
+    {
+        "userid": "service-agent",
+        "auth_token": "a1d48c92ef653b708942",
+        "password": "svc-tmtrack-b7ad2fad77801a35",
+        "password_hash": "scrypt:32768:8:1$HDgg0lLUWQcVKA5y$8fa4fdf9db325fdd2d2195d651a9847ea74ff401ed61e1c941eb6d02c1303fcf642c7ca8e5a5a58d5cab69c1068807c4c51606be70be35d4b0c36142245433b2"
     }
 ]
