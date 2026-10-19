@@ -142,6 +142,9 @@ up() {
         export FLASK_ENV="development"
         export FLASK_DEBUG="1"
         export TMTRACK_COOKIE_PATH="/"
+        if [[ -f "/home/dana/.tmtrack_authentication.json" ]]; then
+            export USER_AUTHENTICATION_FILE="/home/dana/.tmtrack_authentication.json"
+        fi
         exec "${SCRIPT_DIR}/venv/bin/python" -m flask run --host 0.0.0.0 --port "${DEV_API_PORT}"
     ) > "${LOG_DIR}/api.log" 2>&1 &
     API_PID=$!

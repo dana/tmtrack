@@ -203,7 +203,7 @@ def test_dev_login_success(client, monkeypatch, mongo_svc):
 def test_password_login_success_json(client, mongo_svc):
     resp = client.post("/api/auth/login", json={
         "username": "service-agent",
-        "password": "svc-tmtrack-b7ad2fad77801a35"
+        "password": "test-agent-password-1234"
     })
     assert resp.status_code == 200
     data = resp.get_json()
@@ -216,7 +216,7 @@ def test_password_login_success_json(client, mongo_svc):
 def test_password_login_success_form_with_redirect(client, mongo_svc):
     resp = client.post("/api/auth/login", data={
         "username": "service-agent",
-        "password": "svc-tmtrack-b7ad2fad77801a35",
+        "password": "test-agent-password-1234",
         "next": "/tmtrack/"
     })
     assert resp.status_code == 303
@@ -240,7 +240,7 @@ def test_password_login_missing_fields(client):
 
 def test_password_login_basic_auth(client):
     import base64
-    creds = base64.b64encode(b"service-agent:svc-tmtrack-b7ad2fad77801a35").decode()
+    creds = base64.b64encode(b"service-agent:test-agent-password-1234").decode()
     resp = client.get("/api/v1/users", headers={"Authorization": f"Basic {creds}"})
     assert resp.status_code == 200
     data = resp.get_json()
