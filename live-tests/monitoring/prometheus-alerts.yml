@@ -21,12 +21,12 @@
           environment: Production
           service: TMTrackLiveTests
           severity: major
-          resource: 'elwing:tmtrack:{{ .file }}'
+          resource: 'elwing:tmtrack:{{ $labels.file }}'
           event: "TMTrackLiveTestModuleFailed"
         annotations:
           grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests?viewPanel=10"
-          summary: "TMTrack live test file {{ .file }} failed"
-          description: "Live test module {{ .file }} encountered failures."
+          summary: "TMTrack live test file {{ $labels.file }} failed"
+          description: "Live test module {{ $labels.file }} encountered failures."
 
       - alert: TMTrackLiveTestCaseFailed
         expr: tmtrack_live_test_case_status == 0
@@ -35,12 +35,12 @@
           environment: Production
           service: TMTrackLiveTests
           severity: major
-          resource: 'elwing:tmtrack:{{ .file }}:{{ .test }}'
+          resource: 'elwing:tmtrack:{{ $labels.file }}:{{ $labels.test }}'
           event: "TMTrackLiveTestCaseFailed"
         annotations:
           grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests?viewPanel=15"
-          summary: "Live test case {{ .test }} failed in {{ .file }}"
-          description: "Individual test case {{ .test }} failed during scheduled execution."
+          summary: "Live test case {{ $labels.test }} failed in {{ $labels.file }}"
+          description: "Individual test case {{ $labels.test }} failed during scheduled execution."
 
       - alert: TMTrackLiveTestsStale
         expr: (time() - tmtrack_live_test_suite_last_timestamp) > 1200

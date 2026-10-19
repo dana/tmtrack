@@ -2,8 +2,7 @@
 Description=Trigger TMTrack Live Production Tests Every 10 Minutes
 
 [Timer]
-OnBootSec=5min
-OnUnitActiveSec=10min
+OnCalendar=*:05/10
 Persistent=true
 
 [Install]
