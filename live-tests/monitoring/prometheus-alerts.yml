@@ -1,0 +1,57 @@
+  - name: tmtrack_live_test_alerts
+    rules:
+      - alert: TMTrackLiveTestSuiteFailed
+        expr: tmtrack_live_test_suite_status == 0
+        for: 1m
+        labels:
+          environment: Production
+          service: TMTrackLiveTests
+          severity: critical
+          resource: "elwing:tmtrack:live-tests"
+          event: "TMTrackLiveTestSuiteFailed"
+        annotations:
+          grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests?viewPanel=1"
+          summary: "TMTrack production live test suite has FAILED"
+          description: "Live end-to-end tests for TMTrack executed on elwing reported one or more test failures."
+
+      - alert: TMTrackLiveTestModuleFailed
+        expr: tmtrack_live_test_file_status == 0
+        for: 1m
+        labels:
+          environment: Production
+          service: TMTrackLiveTests
+          severity: major
+          resource: 'elwing:tmtrack:{{ .file }}'
+          event: "TMTrackLiveTestModuleFailed"
+        annotations:
+          grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests?viewPanel=10"
+          summary: "TMTrack live test file {{ .file }} failed"
+          description: "Live test module {{ .file }} encountered failures."
+
+      - alert: TMTrackLiveTestCaseFailed
+        expr: tmtrack_live_test_case_status == 0
+        for: 1m
+        labels:
+          environment: Production
+          service: TMTrackLiveTests
+          severity: major
+          resource: 'elwing:tmtrack:{{ .file }}:{{ .test }}'
+          event: "TMTrackLiveTestCaseFailed"
+        annotations:
+          grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests?viewPanel=15"
+          summary: "Live test case {{ .test }} failed in {{ .file }}"
+          description: "Individual test case {{ .test }} failed during scheduled execution."
+
+      - alert: TMTrackLiveTestsStale
+        expr: (time() - tmtrack_live_test_suite_last_timestamp) > 1200
+        for: 2m
+        labels:
+          environment: Production
+          service: TMTrackLiveTests
+          severity: warning
+          resource: "elwing:tmtrack:timer"
+          event: "TMTrackLiveTestsStale"
+        annotations:
+          grafana: "http://192.168.1.247:3000/d/tmtrack-live-tests"
+          summary: "TMTrack live tests have not run in >20 minutes"
+          description: "The 10-minute systemd timer on elwing has not updated test telemetry recently."
