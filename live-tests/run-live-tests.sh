@@ -25,8 +25,20 @@ if [ ! -f "${VENV_DIR}/bin/pytest" ]; then
     python3 -m venv "${VENV_DIR}"
     "${VENV_DIR}/bin/pip" install --upgrade pip
     "${VENV_DIR}/bin/pip" install -r requirements.txt
+else
+    "${VENV_DIR}/bin/pip" install --quiet -r requirements.txt || true
 fi
 
-echo "Running test suite..."
 export HEADLESS_CHROME_CDP="http://127.0.0.1:${PORT}"
-"${VENV_DIR}/bin/pytest" -v tests/ "$@"
+
+# If --profile is passed or PROFILE_TELEMETRY=1, run via the metrics profiler
+if [ "${1:-}" = "--profile" ] || [ "${PROFILE_TELEMETRY:-0}" = "1" ]; then
+    if [ "${1:-}" = "--profile" ]; then
+        shift
+    fi
+    echo "Running test suite with telemetry profiling and Prometheus metric export..."
+    exec "${VENV_DIR}/bin/python3" "${DIR}/run-tmtrack-live-tests-profiled.py" "$@"
+else
+    echo "Running test suite..."
+    exec "${VENV_DIR}/bin/pytest" -v tests/ "$@"
+fi

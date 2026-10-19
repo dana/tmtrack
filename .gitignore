@@ -46,3 +46,8 @@ data/db/
 
 tmtrack_backup.json
 
+
+# Local test credentials and metrics
+.tmtrack.creds
+*.creds
+*.prom

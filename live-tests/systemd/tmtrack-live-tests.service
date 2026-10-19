@@ -1,0 +1,17 @@
+[Unit]
+Description=TMTrack Live Production Tests Runner
+After=network.target
+
+[Service]
+Type=oneshot
+User=dana
+Group=dana
+SupplementaryGroups=docker
+WorkingDirectory=/home/dana/tmtrack/live-tests
+ExecStart=/home/dana/tmtrack/live-tests/scripts/run-tmtrack-live-tests-cron.sh
+TimeoutStartSec=300
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

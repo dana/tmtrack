@@ -1,5 +1,11 @@
+# Test venv and caches
 .venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+.coverage
+htmlcov/
+*.prom
+.tmtrack.creds
+*.creds
 .ainulindale.creds
