@@ -1,10 +1,12 @@
+from werkzeug.security import generate_password_hash
 import json
 import pytest
 from app import auth
 
 SAMPLE_AUTH_DATA = [
     {"userid": "dana", "auth_token": "token_dana"},
-    {"userid": "michelle", "auth_token": "token_michelle"}
+    {"userid": "michelle", "auth_token": "token_michelle"},
+    {"userid": "service-test", "password": "plain-password", "password_hash": generate_password_hash("hash-password"), "auth_token": "token-as-pwd"}
 ]
 SAMPLE_AUTHZ_DATA = [
     {"group_name": "Group A", "userids": ["dana", "michelle"]},
@@ -85,3 +87,26 @@ def test_get_groups_from_userid_none_or_empty(setup_auth_files):
     """Test that a None or empty userid returns the 'Guests' list."""
     assert auth.get_groups_from_userid(None) == ["Guests"]
     assert auth.get_groups_from_userid("") == ["Guests"]
+
+
+# --- Tests for verify_user_credentials ---
+
+def test_verify_user_credentials_hashed_password(setup_auth_files):
+    assert auth.verify_user_credentials("service-test", "hash-password") is True
+
+def test_verify_user_credentials_plaintext_password(setup_auth_files):
+    assert auth.verify_user_credentials("service-test", "plain-password") is True
+
+def test_verify_user_credentials_auth_token_fallback(setup_auth_files):
+    assert auth.verify_user_credentials("service-test", "token-as-pwd") is True
+
+def test_verify_user_credentials_invalid_password(setup_auth_files):
+    assert auth.verify_user_credentials("service-test", "wrong-password") is False
+
+def test_verify_user_credentials_unknown_user(setup_auth_files):
+    assert auth.verify_user_credentials("nonexistent-user", "password") is False
+
+def test_verify_user_credentials_empty(setup_auth_files):
+    assert auth.verify_user_credentials("", "") is False
+    assert auth.verify_user_credentials("service-test", "") is False
+    assert auth.verify_user_credentials(None, "hash-password") is False

@@ -2,12 +2,12 @@ import datetime
 import os
 import secrets
 import urllib.parse
-from flask import Blueprint, jsonify, redirect, request, current_app
+from flask import Blueprint, jsonify, make_response, redirect, request, current_app
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 import requests
 
-from app.auth import get_groups_from_userid
+from app.auth import get_groups_from_userid, verify_user_credentials
 from app.api.utils import get_auth_info_from_request
 from app.services.mongo_service import MongoService
 
@@ -257,3 +257,77 @@ def dev_login():
         path=cookie_path
     )
     return resp
+
+
+@auth_bp.route("/auth/login", methods=["POST"])
+def password_login():
+    """
+    Authenticates a user or service account using account name and password.
+    Accepts JSON body ({"username": "...", "password": "..."}) or Form POST.
+    Falls back to HTTP Basic Auth if credentials are not in request body.
+    Sets the "tmtrack_session" cookie on success and returns session info or redirects.
+    """
+    data = request.get_json(silent=True) or {}
+    username = (
+        data.get("username")
+        or data.get("userid")
+        or request.form.get("username")
+        or request.form.get("userid")
+    )
+    password = data.get("password") or request.form.get("password")
+
+    # Fall back to HTTP Basic Auth if credentials not present in body
+    if (not username or not password) and request.authorization:
+        username = request.authorization.username
+        password = request.authorization.password
+
+    if not username or not password:
+        return jsonify({"error": "Account name and password are required"}), 400
+
+    username = username.strip()
+    if not verify_user_credentials(username, password):
+        return jsonify({"error": "Invalid account name or password"}), 401
+
+    groups = get_groups_from_userid(username)
+    if not groups or groups == ["Guests"]:
+        return jsonify({
+            "error": "Forbidden",
+            "message": f"Account '{username}' is not authorized to access TMTrack."
+        }), 403
+
+    session_id = secrets.token_urlsafe(32)
+    expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
+    mongo_service.create_session(
+        session_id=session_id,
+        userid=username,
+        email=username if "@" in username else None,
+        name=username,
+        expires_at=expires_at,
+    )
+
+    target_redirect = request.args.get("next") or (request.form.get("next") if request.form else None)
+    cookie_path = _get_cookie_path()
+    is_secure = _is_request_secure()
+
+    if target_redirect:
+        response = redirect(target_redirect, code=303)
+    else:
+        response = make_response(jsonify({
+            "authenticated": True,
+            "userid": username,
+            "name": username,
+            "groups": groups,
+            "session_id": session_id,
+        }), 200)
+
+    response.set_cookie(
+        key="tmtrack_session",
+        value=session_id,
+        max_age=365 * 24 * 3600,
+        httponly=True,
+        secure=is_secure,
+        samesite="Lax",
+        path=cookie_path,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
